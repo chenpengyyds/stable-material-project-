@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>材料极速检索平台</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f8f9fa; }
+        .search-box { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; gap: 15px; align-items: center; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid #eee; padding: 15px; text-align: left; }
+        th { background-color: #28a745; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        input, button { padding: 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 15px; }
+        button { background: #28a745; color: white; border: none; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #218838; }
+        #info { margin-bottom: 15px; color: #666; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔬 材料属性极速检索平台</h1>
+    <div class="search-box">
+        <input type="text" id="formula" placeholder="化学式 (如 MgO)">
+        <input type="number" id="energy" value="0" step="0.1" title="最高形成能">
+        <button onclick="doSearch(1)">🔍 立即搜索</button>
+    </div>
+    <div id="info">请输入关键词开始检索...</div>
+    <table id="resultTable">
+        <thead><tr><th>编号</th><th>化学式</th><th>形成能 (eV/atom)</th><th>能带 (eV)</th></tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        async function doSearch(page) {
+            const formula = document.getElementById('formula').value;
+            const energy = document.getElementById('energy').value;
+            const infoDiv = document.getElementById('info');
+            
+            infoDiv.innerText = "⚡ 正在云端检索中...";
+
+            try {
+                // 👇 厂长，请在这里精准替换你的 Railway 网址，注意前后的 ` 和 ) 不要动
+                const url = `https://web-production-61547.up.railway.app/search?formula=${formula}&energy=${energy}&page=${page}`;
+                
+                const res = await fetch(url);
+                const json = await res.json();
+                
+                infoDiv.innerText = `✅ 找到 ${json.total} 条匹配结果`;
+                const tbody = document.querySelector('#resultTable tbody');
+                
+                if (json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">未找到匹配材料</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map(item => `
+                    <tr>
+                        <td>${item['编号 (MP ID)'] || 'N/A'}</td>
+                        <td>${item['化学式'] || 'N/A'}</td>
+                        <td>${item['形成能 (eV/atom)'] || '0'}</td>
+                        <td>${item['能带 (eV)'] || '0'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error(error);
+                infoDiv.innerText = "❌ 搜索失败，请检查后端地址是否正确或已开启跨域。";
+            }
+        }
+    </script>
+</body>
+</html>
