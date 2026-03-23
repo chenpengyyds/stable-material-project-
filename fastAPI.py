@@ -5,71 +5,62 @@ Created on Mon Mar 23 20:07:48 2026
 @author: chenpengyyds
 """
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import os
 
 app = FastAPI()
 
-# 允许跨域（必须保留，否则网页无法读取）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 🚀 加载 21万条的全量超级油箱
-# 确保你的文件名和 Parquet2.py 生成的一致
-df = pd.read_parquet("materials_v2.parquet")
+# 🚀 优化 1：启动时【只加载】搜索用的列，不加载沉重的 CIF 文本
+# 这样内存占用会从 500MB 瞬间降到 50MB 左右
+FILE_NAME = "materials_v2.parquet"
+SEARCH_COLS = ['Material ID', 'Formula', 'Predicted Formation Energy (eV/atom)', 'Band Gap (eV)', 'Space Group']
 
-# --- 接口 1：极速列表搜索 ---
+try:
+    # 只读取必要的列，让 Railway 喘口气
+    df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
+    print(f"✅ 搜索索引加载成功：{len(df_search)} 条材料")
+except Exception as e:
+    print(f"❌ 加载失败: {e}")
+
 @app.get("/search")
-async def search(formula: str = "", energy: float = 0.0, page: int = 1):
-    # 💡 关键修正：这里的列名必须匹配 CSV 里的 'Predicted Formation Energy (eV/atom)'
-    results = df[df['Predicted Formation Energy (eV/atom)'] <= energy]
-    
-    # 💡 关键修正：搜索列改为 'Formula'
+async def search(formula: str = "", energy: float = 0.5, page: int = 1):
+    # 在轻量化索引中检索
+    results = df_search[df_search['Predicted Formation Energy (eV/atom)'] <= energy]
     if formula:
         results = results[results['Formula'].str.contains(formula, case=False, na=False)]
     
     page_size = 30
     start = (page - 1) * page_size
+    data = results.iloc[start:start + page_size].to_dict(orient="records")
     
-    # 💡 全量展示：这里定义要在网页表格里展示的列
-    # 你可以根据 CSV 里的实际表头继续往里加，比如 'Space Group', 'Crystal System'
-    columns_to_return = [
-        'Material ID', 
-        'Formula', 
-        'Predicted Formation Energy (eV/atom)', 
-        'Band Gap (eV)', 
-        'Space Group'
-    ]
-    
-    # 只提取存在的列，避开体积庞大的 'cif_text'
-    available_cols = [col for col in columns_to_return if col in results.columns]
-    
-    # 执行切片和格式转换
-    data = results.iloc[start:start + page_size][available_cols].to_dict(orient="records")
-    
-    return {
-        "total": len(results), 
-        "data": data,
-        "page": page
-    }
+    return {"total": len(results), "data": data}
 
-# --- 接口 2：精准 CIF 下载 ---
 @app.get("/get_cif")
 async def get_cif(mpid: str):
-    # 💡 关键修正：查找列改为 'Material ID'
-    material = df[df['Material ID'] == mpid]
-    
-    if material.empty:
-        raise HTTPException(status_code=404, detail="未找到该材料 ID")
+    try:
+        # 🚀 优化 2：只有当用户点下载时，才去磁盘里精准读取那一条 CIF
+        # 这样平时完全不占内存
+        single_df = pd.read_parquet(FILE_NAME, filters=[('Material ID', '==', mpid)])
         
-    cif_text = material.iloc[0].get('cif_text', "")
-    
-    if not cif_text:
-        raise HTTPException(status_code=404, detail="该材料暂无对应的 CIF 结构文件")
-    
-    return {"mpid": mpid, "cif": cif_text}
+        if single_df.empty:
+            raise HTTPException(status_code=404, detail="未找到该材料")
+            
+        cif_text = single_df.iloc[0].get('cif_text', "")
+        return {"mpid": mpid, "cif": cif_text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 🚀 优化 3：确保端口监听正确
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
