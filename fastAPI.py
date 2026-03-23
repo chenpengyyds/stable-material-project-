@@ -16,7 +16,7 @@ app.add_middleware(
 
 FILE_NAME = "materials_v2.parquet"
 # 🚨 厂长注意：把下面这个网址，换成你刚才右键复制的真实下载链接！
-DOWNLOAD_URL = "https://github.com/填你自己的/releases/download/v2.0/materials_v2.parquet"
+DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
 # 🚀 超级自动装载机：如果服务器上没有这个文件，就自动去云端拉取
 if not os.path.exists(FILE_NAME):
