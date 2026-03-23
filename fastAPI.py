@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import os
+import urllib.request # 导入下载工具
 
 app = FastAPI()
 
@@ -14,6 +15,15 @@ app.add_middleware(
 )
 
 FILE_NAME = "materials_v2.parquet"
+# 🚨 厂长注意：把下面这个网址，换成你刚才右键复制的真实下载链接！
+DOWNLOAD_URL = "https://github.com/填你自己的/releases/download/v2.0/materials_v2.parquet"
+
+# 🚀 超级自动装载机：如果服务器上没有这个文件，就自动去云端拉取
+if not os.path.exists(FILE_NAME):
+    print(f"⏳ 发现缺失数据库，正在从 GitHub Release 高速拉取 172MB 超大文件...")
+    urllib.request.urlretrieve(DOWNLOAD_URL, FILE_NAME)
+    print("✅ 超大数据库下载完成！")
+
 SEARCH_COLS = ['Material ID', 'Formula', 'Predicted Formation Energy (eV/atom)', 'Band Gap (eV)', 'Space Group']
 
 try:
@@ -21,7 +31,6 @@ try:
     print(f"✅ 搜索索引加载成功：{len(df_search)} 条材料")
 except Exception as e:
     print(f"❌ 加载失败: {e}")
-
 @app.get("/search")
 async def search(formula: str = "", energy: float = 0.5, page: int = 1):
     results = df_search[df_search['Predicted Formation Energy (eV/atom)'] <= energy]
