@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import urllib.request
 import threading
+import duckdb  # 🚀 新引入的神器
 
 app = FastAPI()
 
@@ -22,7 +23,6 @@ df_search = pd.DataFrame()
 is_downloading = False
 
 def background_init():
-    """后台静默加载任务"""
     global df_search, is_downloading
     is_downloading = True
     
@@ -53,9 +53,6 @@ def background_init():
 async def startup_event():
     threading.Thread(target=background_init).start()
 
-# ==========================================
-# 🚨 关键修复：恢复了你原本的分页逻辑和返回格式
-# ==========================================
 @app.get("/search")
 async def search(formula: str = "", energy: float = 0.5, page: int = 1):
     if df_search.empty:
@@ -64,42 +61,52 @@ async def search(formula: str = "", energy: float = 0.5, page: int = 1):
         else:
             raise HTTPException(status_code=503, detail="数据库未就绪")
     
-    # 使用你原本的筛选逻辑（支持模糊匹配）
     results = df_search[df_search['Predicted Formation Energy (eV/atom)'] <= energy]
     if formula:
         results = results[results['Formula'].str.contains(formula, case=False, na=False)]
     
-    # 恢复你原本的分页计算逻辑
     page_size = 30
     start = (page - 1) * page_size
     data = results.iloc[start:start + page_size].to_dict(orient="records")
     
-    # 完美契合前端期望的返回格式！
     return {"total": len(results), "data": data}
 
 @app.get("/get_cif")
 async def get_cif(mpid: str):
     if not os.path.exists(FILE_NAME):
-        raise HTTPException(status_code=503, detail="云端数据库尚未下载完成，请稍后再试")
+        raise HTTPException(status_code=503, detail="云端数据库尚未准备好，请稍后再试")
         
     try:
-        single_df = pd.read_parquet(
-            FILE_NAME, 
-            filters=[('Material ID', '==', mpid)],
-            columns=['Material ID', 'cif_text'] 
-        )
+        # 🚀 关键优化：使用 DuckDB 直接对磁盘上的 Parquet 文件执行 SQL 查询
+        # 这种方式完美绕过 Pandas，内存消耗几乎为 0
+        query = f"""
+            SELECT cif_text 
+            FROM '{FILE_NAME}' 
+            WHERE "Material ID" = '{mpid}'
+        """
+        # fetchone() 会返回一个元组，例如: ('data_mp-123\n_symmetry_space_group_name...', )
+        result = duckdb.query(query).fetchone()
         
-        if single_df.empty:
+        # 如果 result 为空，说明没查到这个材料
+        if not result:
             raise HTTPException(status_code=404, detail="未找到该材料")
             
-        cif_content = single_df.iloc[0].get('cif_text', "")
+        cif_content = result[0]
         
+        # 判断 CIF 内容是否为空
         if not cif_content or str(cif_content) == "nan":
             return {"mpid": mpid, "cif": None}
             
         return {"mpid": mpid, "cif": cif_content}
+        
     except Exception as e:
+        print(f"🔥 获取 CIF 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)))
 
 if __name__ == "__main__":
     import uvicorn
