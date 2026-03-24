@@ -50,25 +50,21 @@ except Exception as e:
 # 下面保留你原来的 @app.get("/search") 和 @app.get("/get_cif") 代码不变！
 # ==========================================
 
-@app.get("/get_cif")
-async def get_cif(mpid: str):
+@app.get("/search")
+async def search_materials(formula: str, energy: float):
     try:
-        single_df = pd.read_parquet(FILE_NAME, filters=[('Material ID', '==', mpid)])
-        
-        if single_df.empty:
-            raise HTTPException(status_code=404, detail="未找到该材料")
-            
-        cif_text = single_df.iloc[0].get('cif_text', "")
-        
-        # 即使找到了记录，如果 CIF 是空的，也报错拦截
-        if not cif_text or str(cif_text).strip() == "":
-            raise HTTPException(status_code=404, detail="该材料没有 CIF 结构数据")
-            
-        return {"mpid": mpid, "cif": cif_text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # 1. 在内存中的 df_search 索引中进行筛选
+        # 筛选逻辑：化学式完全匹配 + 形成能小于等于用户输入的阈值
+        mask = (df_search['Formula'] == formula) & (df_search['Predicted Formation Energy (eV/atom)'] <= energy)
+        results = df_search[mask]
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+        if results.empty:
+            return []
+
+        # 2. 将结果转换为列表字典格式返回给前端
+        # 对应前端表格列：Material ID, Formula, Formation Energy, Band Gap, Space Group
+        return results.to_dict(orient='records')
+        
+    except Exception as e:
+        print(f"❌ 搜索出错: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
