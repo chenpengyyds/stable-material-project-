@@ -16,7 +16,7 @@ app.add_middleware(
 FILE_NAME = "materials_v2.parquet"
 
 # 🚀 厂长，我已经根据你的截图帮你把绝对正确的下载链接写好了！
-DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project/releases/download/v2.0/materials_v2.parquet"
+DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
 # 🚀 超级自动装载机：每次 Railway 启动时，如果没发现文件，就自动去你的 Release 拉取这 164MB 的数据
 if not os.path.exists(FILE_NAME):
