@@ -19,15 +19,15 @@ DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/release
 SEARCH_COLS = ['Material ID', 'Formula', 'Predicted Formation Energy (eV/atom)', 'Band Gap (eV)', 'Space Group']
 
 df_search = pd.DataFrame()
-is_downloading = False  # 记录后台是否正在干活
+is_downloading = False
 
 def background_init():
-    """后台独立运行的任务，绝不阻塞服务器启动"""
+    """后台静默加载任务"""
     global df_search, is_downloading
     is_downloading = True
     
     if not os.path.exists(FILE_NAME):
-        print("⏳ [后台任务] 正在从 GitHub 下载 169MB 数据库，请稍候...")
+        print("⏳ [后台任务] 正在从 GitHub 下载数据库...")
         try:
             opener = urllib.request.build_opener()
             opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
@@ -51,24 +51,31 @@ def background_init():
 
 @app.on_event("startup")
 async def startup_event():
-    # 核心修复点：将下载任务扔到后台线程去执行，FastAPI 0.1秒瞬间启动完
     threading.Thread(target=background_init).start()
 
+# ==========================================
+# 🚨 关键修复：恢复了你原本的分页逻辑和返回格式
+# ==========================================
 @app.get("/search")
-async def search(formula: str = "", energy: float = 0.5):
-    # 如果用户在刚启动的几秒内搜索，给出优雅提示
+async def search(formula: str = "", energy: float = 0.5, page: int = 1):
     if df_search.empty:
         if is_downloading:
-            raise HTTPException(status_code=503, detail="云端正在后台下载数据库，请等待约 1 分钟后再试")
+            raise HTTPException(status_code=503, detail="后台正在下载数据库，请等待约 1 分钟后再试")
         else:
             raise HTTPException(status_code=503, detail="数据库未就绪")
     
-    mask = (df_search['Predicted Formation Energy (eV/atom)'] <= energy)
+    # 使用你原本的筛选逻辑（支持模糊匹配）
+    results = df_search[df_search['Predicted Formation Energy (eV/atom)'] <= energy]
     if formula:
-        mask &= (df_search['Formula'] == formula)
+        results = results[results['Formula'].str.contains(formula, case=False, na=False)]
     
-    results = df_search[mask].head(100)
-    return results.to_dict(orient="records")
+    # 恢复你原本的分页计算逻辑
+    page_size = 30
+    start = (page - 1) * page_size
+    data = results.iloc[start:start + page_size].to_dict(orient="records")
+    
+    # 完美契合前端期望的返回格式！
+    return {"total": len(results), "data": data}
 
 @app.get("/get_cif")
 async def get_cif(mpid: str):
