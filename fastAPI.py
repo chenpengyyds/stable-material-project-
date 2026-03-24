@@ -14,28 +14,38 @@ app.add_middleware(
 )
 
 FILE_NAME = "materials_v2.parquet"
+# 🚨 厂长，请把下面引号里的网址换成你刚才【右键复制】到的那个真实链接
+DOWNLOAD_URL = "https://github.com/chenpengyyds/stabel-material-project/releases/download/v1.0/materials_v2.parquet"
 
-# 🚀 厂长，我已经根据你的截图帮你把绝对正确的下载链接写好了！
-DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
-
-# 🚀 超级自动装载机：每次 Railway 启动时，如果没发现文件，就自动去你的 Release 拉取这 164MB 的数据
 if not os.path.exists(FILE_NAME):
-    print("⏳ 发现缺失数据库，正在从 GitHub Release 高速拉取 164MB 超大文件，请耐心等待...")
+    print(f"⏳ 正在尝试下载数据库，目标地址: {DOWNLOAD_URL}")
     try:
+        # 💡 核心升级：把自己伪装成浏览器（Chrome），防止被 GitHub 拦截
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')]
+        urllib.request.install_opener(opener)
+        
         urllib.request.urlretrieve(DOWNLOAD_URL, FILE_NAME)
-        print("✅ 超大数据库下载完成！")
+        print("✅ 超大数据库搬运成功！")
     except Exception as e:
-        print(f"❌ 下载失败: {e}")
+        # 如果失败，这里会打印出非常详细的原因
+        print(f"❌ 搬运失败，具体原因: {e}")
+        # 即使失败也尝试往下走，看看是不是文件其实已经存在了
+        if not os.path.exists(FILE_NAME):
+             print("🚨 警告：磁盘上仍然没有发现数据库文件！")
 
 SEARCH_COLS = ['Material ID', 'Formula', 'Predicted Formation Energy (eV/atom)', 'Band Gap (eV)', 'Space Group']
 
 try:
-    # 只读取必要的列，让 Railway 喘口气
-    df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
-    print(f"✅ 搜索索引加载成功：{len(df_search)} 条材料")
+    if os.path.exists(FILE_NAME):
+        df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
+        print(f"✅ 索引加载成功：{len(df_search)} 条材料")
+    else:
+        print("❌ 加载中止：数据库文件未就位。")
 except Exception as e:
-    print(f"❌ 加载失败: {e}")
+    print(f"❌ 读取 Parquet 出错: {e}")
 
+# ... 后面你的 /search 和 /get_cif 代码保持不变 ...
 # ==========================================
 # 下面保留你原来的 @app.get("/search") 和 @app.get("/get_cif") 代码不变！
 # ==========================================
