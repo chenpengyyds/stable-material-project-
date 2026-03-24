@@ -15,7 +15,7 @@ app.add_middleware(
 
 FILE_NAME = "materials_v2.parquet"
 # 🚨 厂长，请把下面引号里的网址换成你刚才【右键复制】到的那个真实链接
-DOWNLOAD_URL = "https://github.com/chenpengyyds/stabel-material-project/releases/download/v1.0/materials_v2.parquet"
+DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
 if not os.path.exists(FILE_NAME):
     print(f"⏳ 正在尝试下载数据库，目标地址: {DOWNLOAD_URL}")
