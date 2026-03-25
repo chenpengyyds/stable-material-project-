@@ -18,15 +18,16 @@ app.add_middleware(
 FILE_NAME = "materials_v2.parquet"
 DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
-# --- 严格匹配你 CSV 的原始列名 ---
-# 这里的列名必须和你 CSV 第一行完全一致
+# ==========================================
+# 🚨 核心修复：坚决不瞎编，严格按照日志里的列名加载
+# ==========================================
 SEARCH_COLS = [
     'Material ID', 
     'Formula', 
     'Predicted Formation Energy (eV/atom)', 
     'Band Gap (eV)', 
     'Space Group', 
-    'Total Energy (eV)'
+    'Energy Above Hull (eV/atom)'  # ⬅️ 换成了你日志里的真实名字
 ]
 
 df_search = pd.DataFrame()
@@ -36,7 +37,6 @@ def background_init():
     global df_search, is_downloading
     is_downloading = True
     
-    # 1. 下载逻辑
     if not os.path.exists(FILE_NAME):
         print("⏳ [后台] 正在下载数据库...")
         try:
@@ -50,14 +50,13 @@ def background_init():
             is_downloading = False
             return
 
-    # 2. 静态加载：严格按 SEARCH_COLS 读取
     if os.path.exists(FILE_NAME):
         try:
-            # 只加载物理属性列，不加载 cif_text 节省内存
+            # 现在列名对齐了，这里绝对不会再报 No match for FieldRef 错误了
             df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
             print(f"✅ [后台] 索引就绪！当前列: {df_search.columns.tolist()}")
         except Exception as e:
-            print(f"❌ [后台] 加载出错，请检查 Parquet 列名是否包含: {SEARCH_COLS}\n错误信息: {e}")
+            print(f"❌ [后台] 加载出错: {e}")
             
     is_downloading = False
 
@@ -71,8 +70,8 @@ async def search(formula: str = "", energy: float = 0.5, page: int = 1):
         raise HTTPException(status_code=503, detail="数据库装填中，请稍后刷新")
     
     try:
-        # 筛选：使用 CSV 里的形成能列名
-        target_col = 'Predicted Formation Energy (eV/atom)'
+        # 💡 使用 E_hull 作为真正的筛选标准
+        target_col = 'Energy Above Hull (eV/atom)'
         mask = (df_search[target_col] <= energy)
         
         if formula:
@@ -80,10 +79,8 @@ async def search(formula: str = "", energy: float = 0.5, page: int = 1):
         
         results = df_search[mask]
         
-        # 分页
         page_size = 20
         start = (page - 1) * page_size
-        # to_dict 会把该行所有列（含总能）发给前端
         data = results.iloc[start:start + page_size].to_dict(orient="records")
         
         return {"total": len(results), "data": data}
@@ -95,7 +92,6 @@ async def get_cif(mpid: str):
     if not os.path.exists(FILE_NAME):
         raise HTTPException(status_code=503, detail="文件下载中")
     try:
-        # 使用 DuckDB 查询时，带空格的列名必须加双引号
         query = f'SELECT cif_text FROM "{FILE_NAME}" WHERE "Material ID" = \'{mpid}\''
         result = duckdb.query(query).fetchone()
         
