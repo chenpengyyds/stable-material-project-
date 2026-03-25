@@ -1,207 +1,161 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>厂长材料数据库 V2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>厂长材料数据库 V2.0 - 动态适配版</title>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 30px; background: #f4f7f6; color: #2c3e50; line-height: 1.6; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 40px; }
-        .header h1 { color: #1a73e8; font-size: 2.5em; margin-bottom: 10px; }
+        :root { --primary: #007bff; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 30px; }
         
-        .search-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; gap: 20px; align-items: flex-end; justify-content: center; margin-bottom: 30px; }
+        .search-box { display: flex; gap: 15px; justify-content: center; align-items: flex-end; margin-bottom: 30px; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .input-group label { font-size: 14px; font-weight: 600; color: #5f6368; }
-        input { padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; width: 220px; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #1a73e8; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 180px; font-size: 14px; }
+        button { padding: 10px 25px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        button:hover { background: #0056b3; transform: translateY(-1px); }
         
-        button.action-btn { background: #1a73e8; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; height: 48px; }
-        button.action-btn:hover { background: #1557b0; transform: translateY(-2px); }
-        
-        .table-container { background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 18px; text-align: left; border-bottom: 1px solid #f0f0f0; }
-        th { background: #f8f9fa; font-weight: 600; color: #5f6368; text-transform: uppercase; font-size: 13px; }
-        tr:hover { background: #f1f8ff; }
-        
-        .cif-btn { background: #34a853; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: 0.2s; }
-        .cif-btn:hover { background: #2d8e47; }
-        #status-info { margin-bottom: 15px; font-weight: 500; color: #1a73e8; }
-        
-        /* 翻页组件样式 */
-        .pagination { display: none; text-align: center; margin-top: 20px; padding: 20px 0; }
-        .page-btn { background: #fff; border: 1px solid #dcdcdc; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #5f6368; margin: 0 10px; transition: 0.2s; }
-        .page-btn:hover:not(:disabled) { background: #f1f8ff; border-color: #1a73e8; color: #1a73e8; }
-        .page-btn:disabled { background: #f8f9fa; cursor: not-allowed; color: #b0b0b0; border-color: #eee; }
-        #pageIndicator { font-size: 15px; font-weight: bold; color: #2c3e50; }
+        .table-container { overflow-x: auto; margin-top: 20px; border: 1px solid #eee; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { background: #f1f4f9; color: #555; font-weight: 600; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        tr:hover { background-color: #fcfdfe; }
+
+        #status-msg { text-align: center; padding: 15px; border-radius: 6px; display: none; margin: 10px 0; }
+        .error { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+        .btn-download { background: #28a745; font-size: 12px; padding: 5px 10px; }
+        .btn-download:hover { background: #218838; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔬 材料属性全量检索平台</h1>
-            <p>基于第一性原理计算的 210,000+ 材料结构数据库</p>
-        </div>
 
-        <div class="search-card">
-            <div class="input-group">
-                <label>化学式 (如 MoS2):</label>
-                <input type="text" id="formula" placeholder="留空则搜索全部">
-            </div>
-            <div class="input-group">
-                <label>形成能阈值 (≤ eV/atom):</label>
-                <input type="number" id="energy" value="0.5" step="0.1">
-            </div>
-            <button class="action-btn" onclick="doSearch(1)">🔍 立即检索</button>
+<div class="container">
+    <h1>🔬 材料属性全量检索平台</h1>
+    
+    <div class="search-box">
+        <div class="input-group">
+            <label>化学式 (如 CaO):</label>
+            <input type="text" id="formula-input" placeholder="输入化学式...">
         </div>
-        
-        <div id="status-info">请在上方输入条件开始检索...</div>
-
-        <div class="table-container">
-            <table id="resultTable">
-                <thead>
-                    <tr>
-                        <th>MP 编号</th>
-                        <th>化学式</th>
-                        <th>形成能 (eV/atom)</th>
-                        <th>能带 (eV)</th>
-                        <th>空间群</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div class="input-group">
+            <label>形成能阈值 (≤ eV/atom):</label>
+            <input type="number" id="energy-input" value="0.5" step="0.1">
         </div>
-
-        <div class="pagination" id="pagination">
-            <button class="page-btn" id="prevBtn" onclick="changePage(-1)">⬅️ 上一页</button>
-            <span id="pageIndicator">第 1 / 1 页</span>
-            <button class="page-btn" id="nextBtn" onclick="changePage(1)">下一页 ➡️</button>
-        </div>
+        <button id="search-btn" onclick="doSearch(1)">立即检索</button>
     </div>
 
-    <script>
-        // ✅ 你的专属后端地址，已直接写好！
-        const API_BASE = "https://web-production-61547.up.railway.app"; 
+    <div id="status-msg" class="error">❌ 访问失败：云端服务器可能正在重启，请稍等 1 分钟后重试。</div>
+
+    <div class="table-container">
+        <table id="result-table">
+            <thead>
+                </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 🚨 厂长注意：请务必确认这是你最新的 Railway 域名
+    const API_BASE = "https://web-production-61547.up.railway.app";
+
+    async function doSearch(page = 1) {
+        const formula = document.getElementById('formula-input').value.trim();
+        const energy = document.getElementById('energy-input').value;
+        const btn = document.getElementById('search-btn');
+        const status = document.getElementById('status-msg');
+
+        btn.innerText = "🔍 检索中...";
+        btn.disabled = true;
+        status.style.display = 'none';
+
+        try {
+            // 构造请求网址
+            const url = `${API_BASE}/search?formula=${formula}&energy=${energy}&page=${page}`;
+            const response = await fetch(url);
+            
+            if (!response.ok) throw new Error('Backend Error');
+            
+            const result = await response.json();
+            renderTable(result.data); // 调用动态渲染函数
+            
+        } catch (error) {
+            console.error("检索出错:", error);
+            status.style.display = 'block';
+        } finally {
+            btn.innerText = "立即检索";
+            btn.disabled = false;
+        }
+    }
+
+    function renderTable(data) {
+        const thead = document.querySelector('#result-table thead');
+        const tbody = document.querySelector('#result-table tbody');
         
-        let currentPage = 1;
-        let totalRecords = 0;
-        const PAGE_SIZE = 10; // 每页 10 条
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
 
-        async function doSearch(pageIndex) {
-            currentPage = pageIndex;
-            const formula = document.getElementById('formula').value;
-            const energy = document.getElementById('energy').value;
-            const statusInfo = document.getElementById('status-info');
-            const tbody = document.querySelector('#resultTable tbody');
-            const paginationDiv = document.getElementById('pagination');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;">未找到匹配的数据记录</td></tr>';
+            return;
+        }
+
+        // 💡 核心：动态表头逻辑 (扫描仪模式)
+        // Object.keys(data[0]) 会自动抓取后端发来的所有属性名（如 Formula, Total Energy 等）
+        const columns = Object.keys(data[0]); 
+        
+        let headHtml = '<tr>';
+        columns.forEach(col => {
+            headHtml += `<th>${col}</th>`;
+        });
+        headHtml += '<th>操作</th></tr>';
+        thead.innerHTML = headHtml;
+
+        // 💡 核心：动态行生成
+        data.forEach(item => {
+            let rowHtml = '<tr>';
+            columns.forEach(col => {
+                // 如果数据是 null 显示横杠
+                const val = item[col] !== null ? item[col] : '-';
+                rowHtml += `<td>${val}</td>`;
+            });
             
-            statusInfo.innerText = `⚡ 正在检索第 ${currentPage} 页数据，请稍候...`;
-            tbody.innerHTML = '';
-            paginationDiv.style.display = 'none';
+            // 操作列：下载按钮
+            const mpid = item['Material ID']; // 假设这一列永远存在
+            rowHtml += `<td><button class="btn-download" onclick="downloadCIF('${mpid}')">下载 CIF</button></td>`;
+            rowHtml += '</tr>';
+            tbody.innerHTML += rowHtml;
+        });
+    }
 
-            try {
-                const url = `${API_BASE}/search?formula=${encodeURIComponent(formula)}&energy=${energy}&page=${currentPage}`;
-                const res = await fetch(url);
-                const json = await res.json();
-                
-                totalRecords = json.total;
-                statusInfo.innerText = `✅ 检索成功：共找到 ${totalRecords} 条匹配结果`;
-                
-                if (json.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">未找到匹配材料</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = json.data.map(item => `
-                    <tr>
-                        <td><strong>${item['Material ID']}</strong></td>
-                        <td>${item['Formula'] || '-'}</td>
-                        <td>${item['Predicted Formation Energy (eV/atom)'] || '-'}</td>
-                        <td>${item['Band Gap (eV)'] || '-'}</td>
-                        <td>${item['Space Group'] || '-'}</td>
-                        <td>
-                            <button class="cif-btn" onclick="downloadCIF('${item['Material ID']}')">⬇️ 下载 CIF</button>
-                        </td>
-                    </tr>
-                `).join('');
-                
-                updatePaginationUI();
-                
-            } catch (error) {
-                console.error(error);
-                statusInfo.innerText = "❌ 访问失败：云端服务器可能正在重启，请等待 1 分钟后重试。";
-            }
-        }
-
-        // 更新翻页按钮状态
-        function updatePaginationUI() {
-            const maxPage = Math.ceil(totalRecords / PAGE_SIZE) || 1;
-            document.getElementById('pagination').style.display = 'block';
-            document.getElementById('pageIndicator').innerText = `第 ${currentPage} / ${maxPage} 页`;
+    async function downloadCIF(mpid) {
+        if(!mpid) return;
+        try {
+            const res = await fetch(`${API_BASE}/get_cif?mpid=${mpid}`);
+            const json = await res.json();
             
-            document.getElementById('prevBtn').disabled = (currentPage === 1);
-            document.getElementById('nextBtn').disabled = (currentPage === maxPage);
-        }
-
-        // 点击翻页按钮
-        function changePage(step) {
-            const maxPage = Math.ceil(totalRecords / PAGE_SIZE);
-            const newPage = currentPage + step;
-            if (newPage >= 1 && newPage <= maxPage) {
-                doSearch(newPage);
+            if (!json.cif) {
+                alert(`⚠️ 下载失败！该材料 [${mpid}] 在数据库中没有关联的 CIF 结构文件。`);
+                return;
             }
-        }
 
-        // 🚀 优化版：带状态反馈的下载功能
-        async function downloadCIF(mpid) {
-            // 给用户一个即时反馈，证明按钮被点到了
-            const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ 拉取中...";
-            btn.disabled = true;
-            btn.style.backgroundColor = "#fbbc04";
-
-            try {
-                const res = await fetch(`${API_BASE}/get_cif?mpid=${mpid}`);
-                
-                if (!res.ok) {
-                    throw new Error("无数据");
-                }
-                
-                const data = await res.json();
-                
-                if (data.cif && data.cif.trim() !== "") {
-                    // 执行下载
-                    const blob = new Blob([data.cif], { type: 'text/plain' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${mpid}.cif`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    
-                    btn.innerText = "✅ 已下载";
-                    btn.style.backgroundColor = "#34a853";
-                } else {
-                    throw new Error("空文件");
-                }
-            } catch (error) {
-                alert(`❌ 下载失败！\n原因：这 21 万条数据里，部分材料本来就没有提供结构文件，[${mpid}] 正好是其中之一。`);
-                btn.innerText = "❌ 无文件";
-                btn.style.backgroundColor = "#ea4335";
-            } finally {
-                // 3秒后恢复按钮原状
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                    btn.style.backgroundColor = "#34a853";
-                }, 3000);
-            }
+            // 创建 Blob 对象并触发浏览器下载
+            const blob = new Blob([json.cif], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${mpid}.cif`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            alert("下载请求失败，请检查 Railway 后端日志。");
         }
-    </script>
+    }
+</script>
+
 </body>
 </html>
