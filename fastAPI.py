@@ -18,15 +18,25 @@ app.add_middleware(
 FILE_NAME = "materials_v2.parquet"
 DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
+# --- 严格匹配你 CSV 的原始列名 ---
+# 这里的列名必须和你 CSV 第一行完全一致
+SEARCH_COLS = [
+    'Material ID', 
+    'Formula', 
+    'Predicted Formation Energy (eV/atom)', 
+    'Band Gap (eV)', 
+    'Space Group', 
+    'Total Energy (eV)'
+]
+
 df_search = pd.DataFrame()
-SEARCH_COLS = []
-ENERGY_COL = "" # 自动探测到的能量列名
 is_downloading = False
 
 def background_init():
-    global df_search, SEARCH_COLS, ENERGY_COL, is_downloading
+    global df_search, is_downloading
     is_downloading = True
     
+    # 1. 下载逻辑
     if not os.path.exists(FILE_NAME):
         print("⏳ [后台] 正在下载数据库...")
         try:
@@ -34,32 +44,20 @@ def background_init():
             opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
             urllib.request.install_opener(opener)
             urllib.request.urlretrieve(DOWNLOAD_URL, FILE_NAME)
+            print("✅ [后台] 下载完成！")
         except Exception as e:
-            print(f"❌ 下载失败: {e}")
+            print(f"❌ [后台] 下载失败: {e}")
             is_downloading = False
             return
 
+    # 2. 静态加载：严格按 SEARCH_COLS 读取
     if os.path.exists(FILE_NAME):
         try:
-            # 1. 读取表头并自动探测列名
-            sample = pd.read_parquet(FILE_NAME, engine='pyarrow').head(1)
-            all_cols = sample.columns.tolist()
-            
-            # 💡 自动寻找包含 "Energy" 且包含 "Formation" 的列作为筛选标准
-            for col in all_cols:
-                if "Energy" in col and "Formation" in col:
-                    ENERGY_COL = col
-                    break
-            
-            # 如果没找到，就默认选第一个包含 Energy 的列
-            if not ENERGY_COL:
-                ENERGY_COL = next((c for c in all_cols if "Energy" in c), all_cols[2])
-
-            SEARCH_COLS = [c for c in all_cols if c != 'cif_text']
+            # 只加载物理属性列，不加载 cif_text 节省内存
             df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
-            print(f"✅ 加载成功！识别到能量筛选列为: [{ENERGY_COL}]")
+            print(f"✅ [后台] 索引就绪！当前列: {df_search.columns.tolist()}")
         except Exception as e:
-            print(f"❌ 加载出错: {e}")
+            print(f"❌ [后台] 加载出错，请检查 Parquet 列名是否包含: {SEARCH_COLS}\n错误信息: {e}")
             
     is_downloading = False
 
@@ -72,30 +70,41 @@ async def search(formula: str = "", energy: float = 0.5, page: int = 1):
     if df_search.empty:
         raise HTTPException(status_code=503, detail="数据库装填中，请稍后刷新")
     
-    # 使用自动探测到的 ENERGY_COL 进行筛选
     try:
-        mask = (df_search[ENERGY_COL] <= energy)
+        # 筛选：使用 CSV 里的形成能列名
+        target_col = 'Predicted Formation Energy (eV/atom)'
+        mask = (df_search[target_col] <= energy)
+        
         if formula:
             mask &= (df_search['Formula'].str.contains(formula, case=False, na=False))
         
         results = df_search[mask]
+        
+        # 分页
         page_size = 20
         start = (page - 1) * page_size
+        # to_dict 会把该行所有列（含总能）发给前端
         data = results.iloc[start:start + page_size].to_dict(orient="records")
+        
         return {"total": len(results), "data": data}
     except Exception as e:
-        # 如果还是报错，打印出到底是在哪一列崩了
-        raise HTTPException(status_code=500, detail=f"筛选出错，请检查列名 {ENERGY_COL}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"后端搜索出错: {str(e)}")
 
 @app.get("/get_cif")
 async def get_cif(mpid: str):
+    if not os.path.exists(FILE_NAME):
+        raise HTTPException(status_code=503, detail="文件下载中")
     try:
-        query = f"SELECT cif_text FROM '{FILE_NAME}' WHERE \"Material ID\" = '{mpid}'"
+        # 使用 DuckDB 查询时，带空格的列名必须加双引号
+        query = f'SELECT cif_text FROM "{FILE_NAME}" WHERE "Material ID" = \'{mpid}\''
         result = duckdb.query(query).fetchone()
-        if not result or not result[0]: return {"mpid": mpid, "cif": None}
+        
+        if not result or not result[0]:
+            return {"mpid": mpid, "cif": None}
+            
         return {"mpid": mpid, "cif": result[0]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"CIF 读取失败: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
