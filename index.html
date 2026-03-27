@@ -39,7 +39,7 @@
         .download-btn:hover { background: #218838; }
         .view-btn:hover { background: #0076e4; }
 
-        /* 💡 修复 UI：旗舰级 3D 预览弹窗样式，适配电脑版 */
+        /* 3D 预览弹窗样式 (匹配电脑端旗舰级UI) */
         .modal-overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); 
@@ -105,65 +105,32 @@
 
 <script>
     const API_URL = "https://web-production-61547.up.railway.app";
-    let globalViewer; // 全局 3D 渲染器对象
+    let globalViewer; 
 
-  async function previewStructure(mpid, formula) {
-        if(!mpid) return;
-        const modal = document.getElementById('viewer-modal');
-        const title = document.getElementById('modal-title');
-        const viewerDiv = document.getElementById('gldiv');
-        const downloadBtn = document.getElementById('modal-download-btn');
+    async function runSearch(page = 1) {
+        const formula = document.getElementById('formula-input').value.trim();
+        const energy = document.getElementById('energy-input').value;
+        const banner = document.getElementById('error-banner');
+        const btn = document.getElementById('search-btn');
 
-        title.innerText = `${formula} 晶体结构 3D 交互视图`;
-        
-        // 1. 先让弹窗在页面上显示出来
-        modal.style.display = 'flex'; 
+        banner.style.display = 'none';
+        btn.innerText = "🔍 检索中...";
+        btn.disabled = true;
 
-        // 2. 核心魔法：延迟 50 毫秒，等浏览器把弹窗的物理长宽计算完毕，再召唤 3D 引擎
-        setTimeout(async () => {
-            if (globalViewer) {
-                globalViewer.clear();
-            } else {
-                globalViewer = $3Dmol.createViewer(viewerDiv, {
-                    backgroundColor: '#1a1a1a' 
-                });
-            }
-
-            try {
-                const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
-                const data = await res.json();
-                
-                if (!data.cif) {
-                    alert("该材料无结构文件，无法预览。");
-                    closeViewer();
-                    return;
-                }
-
-                // 添加模型数据（删除了会导致报错的赋值和 replicate 操作）
-                globalViewer.addModel(data.cif, "cif"); 
-                
-                // 设置球棍模型样式
-                globalViewer.setStyle({}, { 
-                    sphere: { radius: 0.5, colorscheme: 'Jmol' }, 
-                    stick: { radius: 0.15 } 
-                });
-                
-                // 添加晶胞边界框
-                globalViewer.addUnitCell();
-                
-                // 自动缩放并渲染出图
-                globalViewer.zoomTo(); 
-                globalViewer.render(); 
-
-                downloadBtn.onclick = () => getStructure(mpid);
-
-            } catch (e) {
-                console.error("3D 渲染出错:", e);
-                alert("结构预览渲染失败。");
-                closeViewer();
-            }
-        }, 50); // 50 毫秒的延迟对用户来说是无感的，但能救 WebGL 的命
+        try {
+            const res = await fetch(`${API_URL}/search?formula=${formula}&energy=${energy}&page=${page}`);
+            if (!res.ok) throw new Error("Backend Error");
+            const result = await res.json();
+            renderUI(result.data);
+        } catch (e) {
+            banner.innerText = `⚠️ 访问后端出错。如果是刚打开网页，云端服务器可能正在唤醒中，请等待约 15-20 秒后重试。`;
+            banner.style.display = 'block';
+        } finally {
+            btn.innerText = "立即检索";
+            btn.disabled = false;
+        }
     }
+
     function renderUI(data) {
         const thead = document.querySelector('#main-table thead');
         const tbody = document.querySelector('#main-table tbody');
@@ -199,7 +166,7 @@
         });
     }
 
-    // 💡 修复 Bug：解决黑屏和扩胞 (replicate) 报错问题
+    // 终极修复版的 3D 渲染逻辑
     async function previewStructure(mpid, formula) {
         if(!mpid) return;
         const modal = document.getElementById('viewer-modal');
@@ -209,50 +176,49 @@
 
         title.innerText = `${formula} 晶体结构 3D 交互视图`;
         
-        // 🚨 必须先显示弹窗，让 3D 渲染器有实际的物理长宽尺寸
+        // 必须先让弹窗显示，让浏览器计算出 div 的实际宽高
         modal.style.display = 'flex'; 
 
-        if (globalViewer) {
-            globalViewer.clear();
-        } else {
-            globalViewer = $3Dmol.createViewer(viewerDiv, {
-                backgroundColor: '#1a1a1a' 
-            });
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
-            const data = await res.json();
-            
-            if (!data.cif) {
-                alert("该材料无结构文件，无法预览。");
-                closeViewer();
-                return;
+        // 延迟 50 毫秒，等布局计算完毕再启动 WebGL 画布，防止黑屏报错
+        setTimeout(async () => {
+            if (globalViewer) {
+                globalViewer.clear();
+            } else {
+                globalViewer = $3Dmol.createViewer(viewerDiv, {
+                    backgroundColor: '#1a1a1a' 
+                });
             }
 
-            // 🚨 将添加的模型赋值给一个变量，扩胞操作需要针对模型本身
-            let model = globalViewer.addModel(data.cif, "cif"); 
-            
-            globalViewer.setStyle({}, { 
-                sphere: { radius: 0.5, colorscheme: 'Jmol' }, 
-                stick: { radius: 0.15 } 
-            });
-            
-            globalViewer.addUnitCell();
-            
-            // 🚨 正确调用 replicate 方法
-            model.replicate(1, 1, 1); 
-            
-            globalViewer.zoomTo(); 
-            globalViewer.render(); 
+            try {
+                const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
+                const data = await res.json();
+                
+                if (!data.cif) {
+                    alert("该材料无结构文件，无法预览。");
+                    closeViewer();
+                    return;
+                }
 
-            downloadBtn.onclick = () => getStructure(mpid);
+                globalViewer.addModel(data.cif, "cif"); 
+                
+                globalViewer.setStyle({}, { 
+                    sphere: { radius: 0.5, colorscheme: 'Jmol' }, 
+                    stick: { radius: 0.15 } 
+                });
+                
+                globalViewer.addUnitCell();
+                
+                globalViewer.zoomTo(); 
+                globalViewer.render(); 
 
-        } catch (e) {
-            console.error(e);
-            alert("结构预览加载失败，可能是后端数据异常。");
-            closeViewer();
-        }
+                downloadBtn.onclick = () => getStructure(mpid);
+
+            } catch (e) {
+                console.error("3D 渲染出错:", e);
+                alert("结构预览渲染失败。");
+                closeViewer();
+            }
+        }, 50); 
     }
 
     function closeViewer() {
