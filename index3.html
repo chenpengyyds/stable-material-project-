@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>材料数据库 V3.1 - 3D可视化版</title>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+    <style>
+        /* --- 旗舰级：全屏居中布局 --- */
+        :root { --primary: #0056b3; --secondary: #1890ff; --bg: #f0f2f5; --success: #28a745; }
+        
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; font-family: -apple-system, 'Segoe UI', sans-serif; }
+
+        .main-card { width: 95%; max-width: 1100px; height: 90vh; background: white; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.1); padding: 40px; display: flex; flex-direction: column; }
+        h1 { text-align: center; color: var(--primary); margin: 0 0 30px 0; font-size: 28px; }
+
+        /* 搜索区布局 */
+        .search-section { background: #f8f9fc; padding: 25px; border-radius: 12px; display: flex; gap: 20px; justify-content: center; align-items: flex-end; margin-bottom: 25px; border: 1px solid #e1e8ed; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 13px; font-weight: 600; color: #666; }
+        input { padding: 12px; border: 1px solid #d1d9e0; border-radius: 8px; width: 220px; font-size: 14px; }
+        #search-btn { background: var(--primary); color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        #search-btn:hover { background: #004494; transform: translateY(-1px); }
+
+        /* 表格自适应容器 */
+        .table-area { flex: 1; overflow: auto; border: 1px solid #eee; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { position: sticky; top: 0; background: #f1f4f9; padding: 15px; text-align: left; color: #444; font-size: 14px; z-index: 10; }
+        td { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #333; }
+        tr:hover { background: #fcfdfe; }
+        
+        #error-banner { display: none; background: #fff2f0; color: #ff4d4f; padding: 12px; border: 1px solid #ffccc7; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 14px; }
+
+        /* 操作按钮样式 */
+        .action-btns { display: flex; gap: 5px; justify-content: flex-start; }
+        .download-btn { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .view-btn { background: var(--secondary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .download-btn:hover { background: #218838; }
+        .view-btn:hover { background: #0076e4; }
+
+        /* 💡 增加：3D 预览弹窗 (Modal) 的样式 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+        .modal-content { background: white; width: 90%; max-width: 700px; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .modal-header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fc; }
+        .modal-header h2 { margin: 0; font-size: 18px; color: #333; }
+        .close-btn { font-size: 24px; cursor: pointer; color: #aaa; transition: 0.2s; }
+        .close-btn:hover { color: #333; }
+        /* 这是 3D 渲染的画布区域 */
+        .viewer-container { width: 100%; height: 450px; background: #1a1a1a; position: relative; }
+        .modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; background: white; }
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <h1>🔬 材料属性全量检索平台</h1>
+    
+    <div id="error-banner"></div>
+
+    <div class="search-section">
+        <div class="input-group">
+            <label>化学式 (如 MoS2):</label>
+            <input type="text" id="formula-input" placeholder="输入化学式...">
+        </div>
+        <div class="input-group">
+            <label>Stability Threshold (E_hull ≤ eV/atom):</label>
+            <input type="number" id="energy-input" value="0.05" step="0.01">
+        </div>
+        <button id="search-btn" onclick="runSearch()">立即检索</button>
+    </div>
+
+    <div class="table-area">
+        <table id="main-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="viewer-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Crystal Structure View</h2>
+            <span class="close-btn" onclick="closeViewer()">&times;</span>
+        </div>
+        <div id="gldiv" class="viewer-container"></div>
+        <div class="modal-footer">
+            <button class="download-btn" id="modal-download-btn">下载 CIF 文件</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🚨 厂长注意：请务必确保这是你最新的 Railway 域名
+    const API_URL = "https://web-production-61547.up.railway.app";
+    let globalViewer; // 全局 3D 渲染器对象
+
+    async function runSearch(page = 1) {
+        const formula = document.getElementById('formula-input').value.trim();
+        const energy = document.getElementById('energy-input').value;
+        const banner = document.getElementById('error-banner');
+        const btn = document.getElementById('search-btn');
+
+        banner.style.display = 'none';
+        btn.innerText = "🔍 检索中...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${API_URL}/search?formula=${formula}&energy=${energy}&page=${page}`);
+            if (!res.ok) throw new Error("Backend Error");
+            const result = await res.json();
+            renderUI(result.data);
+        } catch (e) {
+            banner.innerText = `⚠️ 访问后端出错，云端可能正在重启中。`;
+            banner.style.display = 'block';
+        } finally {
+            btn.innerText = "立即检索";
+            btn.disabled = false;
+        }
+    }
+
+    function renderUI(data) {
+        const thead = document.querySelector('#main-table thead');
+        const tbody = document.querySelector('#main-table tbody');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:50px;">未找到匹配记录</td></tr>';
+            return;
+        }
+
+        // 💡 扫描仪逻辑
+        const cols = Object.keys(data[0]);
+        let headRow = '<tr>';
+        cols.forEach(c => headRow += `<th>${c}</th>`);
+        headRow += '<th>操作</th></tr>';
+        thead.innerHTML = headRow;
+
+        data.forEach(item => {
+            let row = '<tr>';
+            cols.forEach(c => row += `<td>${item[c] !== null ? item[c] : '-'}</td>`);
+            
+            const mpid = item['Material ID'];
+            const formula = item['Formula'];
+            
+            // 💡 修正：增加“3D 预览”按钮，调用新的预览函数
+            row += `<td>
+                <div class="action-btns">
+                    <button class="view-btn" onclick="previewStructure('${mpid}', '${formula}')">3D 预览</button>
+                    <button class="download-btn" onclick="getStructure('${mpid}')">下载 CIF</button>
+                </div>
+            </td>`;
+            row += '</tr>';
+            tbody.innerHTML += row;
+        });
+    }
+
+    // 💡 核心增加：3D 预览渲染逻辑
+    async function previewStructure(mpid, formula) {
+        if(!mpid) return;
+        const modal = document.getElementById('viewer-modal');
+        const title = document.getElementById('modal-title');
+        const viewerDiv = document.getElementById('gldiv');
+        const downloadBtn = document.getElementById('modal-download-btn');
+
+        title.innerText = `${formula} 晶体结构 3D 交互视图`;
+        modal.style.display = 'flex'; // 显示弹窗
+
+        // 初始化或清理旧的渲染器
+        if (globalViewer) {
+            globalViewer.clear();
+        } else {
+            // 在画布容器里创建渲染器
+            globalViewer = $3Dmol.createViewer(viewerDiv, {
+                backgroundColor: '#1a1a1a' // 科研感的深色背景
+            });
+        }
+
+        try {
+            // 1. 调用现有的后端接口获取本材料的 CIF 文本
+            const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
+            const data = await res.json();
+            
+            if (!data.cif) {
+                alert("该材料无结构文件，无法预览。");
+                closeViewer();
+                return;
+            }
+
+            // 2. 核心 3Dmol.js 魔法：解析并渲染
+            globalViewer.addModel(data.cif, "cif"); // 添加 CIF 数据
+            
+            // 设置球棍模型样式 (sphere + stick)
+            globalViewer.setStyle({}, { 
+                sphere: { radius: 0.5, colorscheme: 'Jmol' }, // 原子球，使用标准 Jmol 配色
+                stick: { radius: 0.15 } // 键
+            });
+            
+            // 添加晶胞边框
+            globalViewer.addUnitCell();
+            
+            // 平移复制晶胞（显示复数的原胞，更美观）
+            globalViewer.replicate({a: 1, b: 1, c: 1}, true); 
+            
+            globalViewer.zoomTo(); // 自动调整焦距适配窗口
+            globalViewer.render(); // 执行渲染画面
+
+            // 更新弹窗底部下载按钮的逻辑，防止重复调用
+            downloadBtn.onclick = () => getStructure(mpid);
+
+        } catch (e) {
+            console.error(e);
+            alert("结构预览加载失败，可能是后端数据异常。");
+            closeViewer();
+        }
+    }
+
+    // 关闭弹窗
+    function closeViewer() {
+        document.getElementById('viewer-modal').style.display = 'none';
+    }
+
+    // 原始下载函数保持不变
+    async function getStructure(mpid) {
+        if(!mpid) return;
+        try {
+            const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
+            const data = await res.json();
+            if (!data.cif) return alert("无结构文件");
+            const blob = new Blob([data.cif], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${mpid}.cif`;
+            a.click();
+        } catch (e) { alert("下载失败"); }
+    }
+</script>
+
+</body>
+</html>
