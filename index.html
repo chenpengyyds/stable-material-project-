@@ -3,151 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>材料结构检索平台 -</title>
+    <title>材料结构检索平台 - V3.0 </title>
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
     <style>
         :root { 
             --primary: #1890ff; 
-            --bg: #f4f7f9; 
+            --success: #52c41a;
+            --bg: #f0f2f5; 
             --card-bg: #ffffff;
-            --border: #e1e4e8;
+            --border: #e8e8e8;
         }
 
         * { box-sizing: border-box; }
         body { 
             margin: 0; 
             background: var(--bg); 
-            font-family: -apple-system, system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
-            justify-content: center; /* 水平居中 */
-            overflow-x: hidden;
+            justify-content: center;
         }
 
-        /* 💡 主容器：宽度居中 */
+        /* 💡 主容器：优化宽度，居中显示 */
         .app-container {
-            width: 95%;
-            max-width: 1400px; /* 限制最大宽度，放在中间 */
-            margin: 20px auto;
+            width: 98%;
+            max-width: 1500px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
         }
 
-        /* 模块样式 */
         .section-card {
             background: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             padding: 20px;
         }
 
-        header { display: flex; justify-content: space-between; align-items: center; }
-        h1 { margin: 0; font-size: 22px; color: #1a1a1a; display: flex; align-items: center; gap: 10px; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; }
+        h1 { margin: 0; font-size: 20px; color: #001529; }
 
-        /* 周期表网格 */
+        /* 周期表优化 */
         .ptable-grid {
             display: grid;
             grid-template-columns: repeat(18, 1fr);
             gap: 4px;
-            margin-top: 15px;
         }
         .element {
-            min-height: 45px;
+            min-height: 42px;
             aspect-ratio: 1;
             background: #fff;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
             cursor: pointer;
+            font-size: 13px;
             transition: 0.2s;
-            font-size: 14px;
         }
-        .element:hover { background: var(--primary); color: white; transform: translateY(-3px); box-shadow: 0 4px 8px rgba(24,144,255,0.3); }
+        .element:hover { background: var(--primary); color: white; transform: scale(1.1); z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .el-s { background: #f0f5ff; } .el-p { background: #f6ffed; } 
         .el-d { background: #fffbe6; } .el-f { background: #fff2e8; }
 
-        /* 搜索栏 */
-        .search-row {
+        /* 紧凑搜索栏 */
+        .search-bar {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             align-items: flex-end;
-            flex-wrap: wrap;
+            justify-content: center;
         }
-        .input-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 150px; }
-        .input-group label { font-size: 13px; color: #666; font-weight: 600; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; max-width: 250px; }
+        .input-group label { font-size: 12px; color: #8c8c8c; font-weight: 600; }
         .input-group input { 
-            padding: 10px 14px; 
+            padding: 8px 12px; 
             border: 1px solid var(--border); 
-            border-radius: 8px; 
+            border-radius: 6px; 
             font-size: 14px;
-            outline: none;
+            width: 100%;
         }
-        .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.1); }
 
         .btn {
-            padding: 10px 24px;
-            border-radius: 8px;
-            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: 1px solid transparent;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
             transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { opacity: 0.9; }
+        .btn-success { background: #f6ffed; color: var(--success); border-color: #b7eb8f; }
+        .btn-success:hover { background: var(--success); color: white; }
+        .btn-ghost { background: #fff; border-color: var(--primary); color: var(--primary); }
+        .btn-ghost:hover { background: var(--primary); color: white; }
 
-        /* 表格区域 */
-        .table-container { overflow-x: auto; min-height: 520px; } /* 保持 8 行的高度稳定 */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; padding: 14px; border-bottom: 2px solid #f0f0f0; color: #888; font-size: 13px; }
-        td { padding: 14px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
-        tr:hover { background: #fcfdfe; }
+        /* 💡 表格居中处理 */
+        .table-container { min-height: 480px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { 
+            background: #fafafa; 
+            padding: 12px; 
+            border-bottom: 2px solid #f0f0f0; 
+            color: #262626; 
+            text-align: center; /* 字在中间 */
+        }
+        td { 
+            padding: 12px; 
+            border-bottom: 1px solid #f0f0f0; 
+            text-align: center; /* 字在中间 */
+            font-size: 14px;
+        }
+        tr:hover { background: #f0f7ff; }
 
         /* 分页器 */
         .pagination {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
         }
-        .page-btn {
-            padding: 6px 12px;
+        .page-num {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border: 1px solid var(--border);
             background: white;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
-        .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .page-num.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* 💡 全屏 3D 弹窗 */
+        /* 全屏预览弹窗 */
         .modal {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            inset: 0;
+            background: rgba(0,0,0,0.85);
             display: none;
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
         }
         .modal-content {
-            width: 95vw;
-            height: 90vh;
             background: white;
-            border-radius: 16px;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
             position: relative;
         }
-        #gldiv { flex: 1; width: 100%; border-radius: 0 0 16px 16px; }
-        .modal-close {
-            position: absolute;
-            top: 15px; right: 20px;
-            font-size: 30px; cursor: pointer; z-index: 10;
+        #gldiv { flex: 1; width: 100%; border-radius: 0 0 12px 12px; }
+        .modal-header {
+            padding: 15px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
     </style>
 </head>
@@ -155,8 +174,8 @@
 
 <div class="app-container">
     <header class="section-card">
-        <h1>🔬 材料结构检索平台 <span style="font-weight: normal; color: #999; font-size: 14px;">Professional V4.7</span></h1>
-        <button class="btn" style="background: #ff4d4f; color: white;" onclick="clearAll()">重置输入</button>
+        <h1>🔬 材料结构检索平台 <small style="color:#999; font-weight:normal; font-size:12px;">V4.8 Professional</small></h1>
+        <button class="btn" style="background:#ff4d4f; color:white;" onclick="reset()">清空条件</button>
     </header>
 
     <div class="section-card">
@@ -164,14 +183,14 @@
     </div>
 
     <div class="section-card">
-        <div class="search-row">
+        <div class="search-bar">
             <div class="input-group">
                 <label>Material ID</label>
                 <input type="text" id="mpid-input" placeholder="例如: mp-1234">
             </div>
             <div class="input-group">
                 <label>化学式 (Formula)</label>
-                <input type="text" id="formula-input" placeholder="输入或点击上方元素">
+                <input type="text" id="formula-input" placeholder="点击上方元素或输入">
             </div>
             <div class="input-group">
                 <label>稳定性 (E_hull ≤)</label>
@@ -195,7 +214,9 @@
                         <th>操作</th>
                     </tr>
                 </thead>
-                <tbody id="tbody"></tbody>
+                <tbody id="tbody">
+                    <tr><td colspan="7" style="color:#bfbfbf; padding:100px;">等待检索...</td></tr>
+                </tbody>
             </table>
         </div>
         <div class="pagination" id="pagination"></div>
@@ -204,10 +225,15 @@
 
 <div id="modal" class="modal">
     <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
-        <div style="padding: 20px; border-bottom: 1px solid #eee;">
-            <h2 id="m-title" style="margin:0; font-size: 18px;">结构预览</h2>
-            <p style="margin: 5px 0 0 0; color: #888; font-size: 12px;">提示：鼠标悬停在原子上查看实时坐标；滚轮缩放；左键旋转。</p>
+        <div class="modal-header">
+            <div>
+                <h2 id="m-title" style="margin:0; font-size:18px;">结构预览</h2>
+                <span style="font-size:12px; color:#888;">提示：鼠标悬停原子查看坐标，滚轮缩放，左键旋转</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn btn-success" id="dl-btn-modal">下载 CIF</button>
+                <span style="font-size:24px; cursor:pointer;" onclick="closeModal()">&times;</span>
+            </div>
         </div>
         <div id="gldiv"></div>
     </div>
@@ -215,11 +241,10 @@
 
 <script>
     const API = "https://web-production-61547.up.railway.app";
-    const PAGE_SIZE = 8; // 💡 按照要求每页 8 个
+    const PAGE_SIZE = 8; 
     let allData = [];
     let viewer = null;
 
-    // 初始化周期表
     function initPtable() {
         const grid = document.getElementById('ptable');
         const elements = [
@@ -243,7 +268,7 @@
         });
     }
 
-    function clearAll() {
+    function reset() {
         document.getElementById('formula-input').value = '';
         document.getElementById('mpid-input').value = '';
     }
@@ -253,16 +278,24 @@
         const fm = document.getElementById('formula-input').value;
         const eg = document.getElementById('energy-input').value;
         
-        const res = await fetch(`${API}/search?formula=${fm}&energy=${eg}&mpid=${mid}`);
-        const data = await res.json();
-        allData = data.data || data;
-        render(page);
+        try {
+            const res = await fetch(`${API}/search?formula=${fm}&energy=${eg}&mpid=${mid}`);
+            const data = await res.json();
+            allData = data.data || data;
+            render(page);
+        } catch(e) { alert("检索失败，请检查网络或后端状态"); }
     }
 
     function render(page) {
         const start = (page - 1) * PAGE_SIZE;
         const slice = allData.slice(start, start + PAGE_SIZE);
         const tbody = document.getElementById('tbody');
+        
+        if(slice.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:100px; color:#999;">未找到匹配记录</td></tr>';
+            return;
+        }
+
         tbody.innerHTML = slice.map(item => `
             <tr>
                 <td>${item['Material ID']}</td>
@@ -272,23 +305,36 @@
                 <td>${item['Space Group']}</td>
                 <td>${Number(item['Energy Above Hull (eV/atom)']).toFixed(3)}</td>
                 <td>
-                    <button class="page-btn" onclick="open3D('${item['Material ID']}', '${item['Formula']}')">3D 预览</button>
+                    <button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" onclick="open3D('${item['Material ID']}', '${item['Formula']}')">预览</button>
+                    <button class="btn btn-success" style="padding:4px 10px; font-size:12px;" onclick="downloadCIF('${item['Material ID']}')">CIF</button>
                 </td>
             </tr>
         `).join('');
 
-        // 渲染分页
         const totalPages = Math.ceil(allData.length / PAGE_SIZE);
         let pHTML = '';
         for(let i=1; i<=totalPages; i++) {
-            pHTML += `<button class="page-btn ${i===page?'active':''}" onclick="render(${i})">${i}</button>`;
+            pHTML += `<div class="page-num ${i===page?'active':''}" onclick="render(${i})">${i}</div>`;
         }
         document.getElementById('pagination').innerHTML = pHTML;
     }
 
+    async function downloadCIF(mpid) {
+        try {
+            const res = await fetch(`${API}/get_cif?mpid=${mpid}`);
+            const data = await res.json();
+            const blob = new Blob([data.cif], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${mpid}.cif`;
+            a.click();
+        } catch(e) { alert("文件下载失败"); }
+    }
+
     async function open3D(mpid, formula) {
         document.getElementById('modal').style.display = 'flex';
-        document.getElementById('m-title').innerText = `${formula} - 晶体结构`;
+        document.getElementById('m-title').innerText = `${formula} - 结构预览`;
 
         if(!viewer) viewer = $3Dmol.createViewer("gldiv", { backgroundColor: 'white' });
         viewer.clear();
@@ -299,35 +345,28 @@
         viewer.addModel(data.cif, "cif", { supercell: [2, 2, 2] });
         viewer.setStyle({}, { sphere: { radius: 0.5 }, stick: { radius: 0.15 } });
         
-        // 💡 核心功能：鼠标悬停显示原子坐标
         viewer.setHoverable({}, true, 
-            function(atom, viewer, event, container) {
+            function(atom, viewer) {
                 if(!atom.label) {
-                    atom.label = viewer.addLabel(
-                        `${atom.elem}: (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)})`, 
-                        { position: atom, backgroundColor: '#333', fontColor: 'white', backgroundOpacity: 0.8 }
-                    );
+                    atom.label = viewer.addLabel(`${atom.elem}: (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)})`, 
+                        { position: atom, backgroundColor: '#333', fontColor: 'white' });
                 }
             },
             function(atom, viewer) {
-                if(atom.label) {
-                    viewer.removeLabel(atom.label);
-                    delete atom.label;
-                }
+                if(atom.label) { viewer.removeLabel(atom.label); delete atom.label; }
             }
         );
 
         viewer.addUnitCell();
         viewer.zoomTo();
         viewer.render();
+
+        document.getElementById('dl-btn-modal').onclick = () => downloadCIF(mpid);
     }
 
     function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-    window.onload = () => {
-        initPtable();
-        search(1); // 初始化加载数据
-    };
+    window.onload = () => { initPtable(); search(1); };
 </script>
 </body>
 </html>
