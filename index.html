@@ -1,145 +1,117 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 23 20:14:53 2026
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
+import os
+import urllib.request
+import threading
+import duckdb
 
-@author: chenpengyyds
-"""
+app = FastAPI()
 
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>厂长材料数据库 V2.0 - 全量版</title>
-    <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 30px; background: #f4f7f6; color: #2c3e50; line-height: 1.6; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 40px; }
-        .header h1 { color: #1a73e8; font-size: 2.5em; margin-bottom: 10px; }
-        
-        /* 搜索卡片 */
-        .search-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; gap: 20px; align-items: flex-end; justify-content: center; margin-bottom: 30px; }
-        .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .input-group label { font-size: 14px; font-weight: 600; color: #5f6368; }
-        input { padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; width: 220px; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #1a73e8; }
-        
-        button#searchBtn { background: #1a73e8; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; height: 48px; }
-        button#searchBtn:hover { background: #1557b0; transform: translateY(-2px); }
-        
-        /* 表格样式 */
-        .table-container { background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 18px; text-align: left; border-bottom: 1px solid #f0f0f0; }
-        th { background: #f8f9fa; font-weight: 600; color: #5f6368; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; }
-        tr:hover { background: #f1f8ff; }
-        
-        .cif-btn { background: #34a853; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: 0.2s; }
-        .cif-btn:hover { background: #2d8e47; }
-        #status-info { margin-bottom: 15px; font-weight: 500; color: #1a73e8; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔬 材料属性全量检索平台</h1>
-            <p>基于第一性原理计算的 210,000+ 材料结构数据库</p>
-        </div>
+# 配置跨域，允许你的 GitHub Pages 前端访问
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-        <div class="search-card">
-            <div class="input-group">
-                <label>化学式 (如 MoS2):</label>
-                <input type="text" id="formula" placeholder="支持部分匹配">
-            </div>
-            <div class="input-group">
-                <label>形成能阈值 (≤ eV/atom):</label>
-                <input type="number" id="energy" value="0.5" step="0.1">
-            </div>
-            <button id="searchBtn" onclick="doSearch(1)">🔍 立即检索</button>
-        </div>
-        
-        <div id="status-info">请在上方输入条件开始检索...</div>
+FILE_NAME = "materials_v2.parquet"
+DOWNLOAD_URL = "https://github.com/chenpengyyds/stable-material-project-/releases/download/v2/materials_v2.parquet"
 
-        <div class="table-container">
-            <table id="resultTable">
-                <thead>
-                    <tr>
-                        <th>MP 编号</th>
-                        <th>化学式</th>
-                        <th>形成能 (eV/atom)</th>
-                        <th>能带 (eV)</th>
-                        <th>空间群</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
+# ==========================================
+# 🚨 核心修复 1：严格按照真实数据库列名匹配
+# ==========================================
+SEARCH_COLS = [
+    'Material ID', 
+    'Formula', 
+    'Predicted Formation Energy (eV/atom)', 
+    'Band Gap (eV)', 
+    'Space Group', 
+    'Energy Above Hull (eV/atom)'  # 真实的 E_hull 列名
+]
 
-    <script>
-        // 🚨 厂长注意：请务必把这里换成你在 Railway 看到的那个 HTTPS 网址！
-        const API_BASE = "https:/web-production-61547.up.railway.app"; 
+df_search = pd.DataFrame()
+is_downloading = False
 
-        async function doSearch(page) {
-            const formula = document.getElementById('formula').value;
-            const energy = document.getElementById('energy').value;
-            const statusInfo = document.getElementById('status-info');
-            const tbody = document.querySelector('#resultTable tbody');
+def background_init():
+    global df_search, is_downloading
+    is_downloading = True
+    
+    # 1. 自动下载 Parquet 数据库
+    if not os.path.exists(FILE_NAME):
+        print("⏳ [后台] 正在下载数据库...")
+        try:
+            opener = urllib.request.build_opener()
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+            urllib.request.install_opener(opener)
+            urllib.request.urlretrieve(DOWNLOAD_URL, FILE_NAME)
+            print("✅ [后台] 下载完成！")
+        except Exception as e:
+            print(f"❌ [后台] 下载失败: {e}")
+            is_downloading = False
+            return
+
+    # 2. 内存化索引加载
+    if os.path.exists(FILE_NAME):
+        try:
+            # 仅加载 SEARCH_COLS 中的轻量级数据，拒绝 CIF 文本进内存
+            df_search = pd.read_parquet(FILE_NAME, columns=SEARCH_COLS)
+            print(f"✅ [后台] 索引就绪！当前列: {df_search.columns.tolist()}")
+        except Exception as e:
+            print(f"❌ [后台] 加载出错: {e}")
             
-            statusInfo.innerText = "⚡ 正在连接云端服务器，请稍候...";
-            tbody.innerHTML = '';
+    is_downloading = False
 
-            try {
-                const url = `${API_BASE}/search?formula=${encodeURIComponent(formula)}&energy=${energy}&page=${page}`;
-                const res = await fetch(url);
-                const json = await res.json();
-                
-                statusInfo.innerText = `✅ 检索成功：找到 ${json.total} 条匹配结果`;
-                
-                if (json.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">未找到匹配材料</td></tr>';
-                    return;
-                }
+@app.on_event("startup")
+async def startup_event():
+    # 启动后台线程，不阻塞 FastAPI 主程序
+    threading.Thread(target=background_init).start()
 
-                tbody.innerHTML = json.data.map(item => `
-                    <tr>
-                        <td><strong>${item['Material ID']}</strong></td>
-                        <td>${item['Formula'] || '-'}</td>
-                        <td>${item['Predicted Formation Energy (eV/atom)'] || '-'}</td>
-                        <td>${item['Band Gap (eV)'] || '-'}</td>
-                        <td>${item['Space Group'] || '-'}</td>
-                        <td>
-                            <button class="cif-btn" onclick="downloadCIF('${item['Material ID']}')">⬇️ 下载 CIF</button>
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (error) {
-                console.error(error);
-                statusInfo.innerText = "❌ 访问失败：请检查后端 Railway 是否已成功部署，或 API 网址是否填写正确。";
-            }
-        }
+@app.get("/search")
+async def search(formula: str = "", energy: float = 0.5, page: int = 1):
+    if df_search.empty:
+        raise HTTPException(status_code=503, detail="数据库装填中，请稍后刷新")
+    
+    try:
+        # 💡 使用 E_hull 作为真正的稳定性筛选标准
+        target_col = 'Energy Above Hull (eV/atom)'
+        mask = (df_search[target_col] <= energy)
+        
+        if formula:
+            mask &= (df_search['Formula'].str.contains(formula, case=False, na=False))
+        
+        results = df_search[mask]
+        
+        # 分页逻辑 (每页 20 条)
+        page_size = 20
+        start = (page - 1) * page_size
+        data = results.iloc[start:start + page_size].to_dict(orient="records")
+        
+        return {"total": len(results), "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"后端搜索出错: {str(e)}")
 
-        async function downloadCIF(mpid) {
-            try {
-                const res = await fetch(`${API_BASE}/get_cif?mpid=${mpid}`);
-                if (!res.ok) throw new Error("文件不存在");
-                const data = await res.json();
-                
-                if (data.cif) {
-                    const blob = new Blob([data.cif], { type: 'text/plain' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${mpid}.cif`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                }
-            } catch (error) {
-                alert("下载失败：该材料可能在数据库中缺失 CIF 结构文本。");
-            }
-        }
-    </script>
-</body>
-</html>
+@app.get("/get_cif")
+async def get_cif(mpid: str):
+    if not os.path.exists(FILE_NAME):
+        raise HTTPException(status_code=503, detail="文件下载中")
+    try:
+        # 使用 DuckDB 极速切片，双引号防止带空格的列名报错
+        query = f'SELECT cif_text FROM "{FILE_NAME}" WHERE "Material ID" = \'{mpid}\''
+        result = duckdb.query(query).fetchone()
+        
+        if not result or not result[0]:
+            return {"mpid": mpid, "cif": None}
+            
+        return {"mpid": mpid, "cif": result[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"CIF 读取失败: {str(e)}")
+
+# ==========================================
+# 🚨 核心修复 2：绝对纯净的英文冒号
+# ==========================================
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
