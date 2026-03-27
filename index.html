@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>材料数据库 V4.0 - 科研可视化全能版</title>
+    <title>材料数据库 V4.1 - 完整优化版</title>
     <script src="https://3Dmol.org/build/3Dmol-min.js" defer></script>
     <style>
-        /* --- 旗舰级：全屏居中布局与现代 UI --- */
         :root { 
-            --primary: #1890ff; /* 阿里蓝，更现代 */
+            --primary: #1890ff; 
             --primary-hover: #40a9ff;
-            --secondary: #2f54eb; 
             --bg: #f0f2f5; 
             --success: #52c41a; 
             --text: #262626;
@@ -18,107 +16,82 @@
         }
         
         * { box-sizing: border-box; }
-        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: var(--text); }
+        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); }
 
-        /* 主容器 */
         .main-card { width: 95%; max-width: 1200px; height: 95vh; background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
-        h1 { text-align: center; color: #001529; margin: 0 0 20px 0; font-size: 26px; font-weight: 700; }
+        h1 { text-align: center; color: #001529; margin: 0 0 20px 0; font-size: 24px; font-weight: 700; }
 
-        /* ==============================
-           🎨 元素周期表样式
-           ============================== */
-        .ptable-container { background: #fbfbfb; border: 1px solid #eaeaea; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
-        .ptable-title { text-align: center; font-size: 14px; color: #8c8c8c; margin-bottom: 10px; font-weight: 600; }
-        .ptable-grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 4px; max-width: 800px; margin: 0 auto; }
-        .element { aspect-ratio: 1; background: white; border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s ease; color: #595959; }
-        .element:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.15); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        /* 简化的周期表排版 */
-        .empty { visibility: hidden; }
-        /* 简单分类颜色 */
-        .el-nonmetal { border-color: #a0d911; color: #a0d911; }
-        .el-metal { border-color: #fadb14; color: #fadb14; }
-        .el-tm { border-color: #f5222d; color: #f5222d; }
-        .el-lan { border-color: #fa541c; color: #fa541c; }
+        /* === 完整元素周期表样式 === */
+        .ptable-container { background: #fbfbfb; border: 1px solid #eaeaea; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); overflow-x: auto; }
+        .ptable-title { text-align: center; font-size: 13px; color: #8c8c8c; margin-bottom: 10px; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 10px;}
+        .clear-btn { background: #ff4d4f; color: white; border: none; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+        .clear-btn:hover { background: #ff7875; }
+        .ptable-grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 3px; min-width: 800px; margin: 0 auto; }
+        .element { aspect-ratio: 1; background: white; border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.1s ease; color: #595959; }
+        .element:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.1); z-index: 2; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        
+        .el-s { border-color: #85a5ff; color: #2f54eb; background: #f0f5ff; } /* s区 */
+        .el-p { border-color: #b7eb8f; color: #52c41a; background: #f6ffed; } /* p区 */
+        .el-d { border-color: #ffd666; color: #faad14; background: #fffbe6; } /* d区 */
+        .el-f { border-color: #ff9c6e; color: #fa541c; background: #fff2e8; } /* f区 */
 
-        /* ==============================
-           🔍 搜索区布局
-           ============================== */
-        .search-section { background: #f8f9fc; padding: 20px; border-radius: 12px; display: flex; gap: 20px; justify-content: center; align-items: flex-end; margin-bottom: 20px; border: 1px solid #e1e8ed; }
-        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        /* === 搜索与表格区 === */
+        .search-section { background: #f8f9fc; padding: 15px 20px; border-radius: 12px; display: flex; gap: 20px; justify-content: center; align-items: flex-end; margin-bottom: 20px; border: 1px solid #e1e8ed; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
         label { font-size: 13px; font-weight: 600; color: #595959; }
-        input { padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; width: 220px; font-size: 14px; transition: 0.2s; }
-        input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); outline: none; }
-        #search-btn { background: var(--primary); color: white; border: none; padding: 11px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.3s; box-shadow: 0 2px 0 rgba(0,0,0,0.045); }
-        #search-btn:hover { background: var(--primary-hover); }
-        #search-btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
-
-        /* ==============================
-           📊 表格区域与分页
-           ============================== */
+        input { padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; width: 220px; font-size: 14px; }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
+        #search-btn { background: var(--primary); color: white; border: none; padding: 10px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        
         .table-area-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #eee; border-radius: 12px; }
         .table-area { flex: 1; overflow: auto; background: white; }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
-        th, td { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px 15px; }
-        th { position: sticky; top: 0; background: #fafafa; color: #595959; font-size: 13px; font-weight: 600; border-bottom: 1px solid #f0f0f0; z-index: 10; }
-        td { border-bottom: 1px solid #f0f0f0; font-size: 14px; color: var(--text); }
-        tr:hover { background: #e6f7ff; } /* 阿里蓝悬停色 */
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th, td { text-align: left; padding: 10px 15px; white-space: nowrap; }
+        th { position: sticky; top: 0; background: #fafafa; font-size: 13px; z-index: 10; border-bottom: 1px solid #f0f0f0; }
+        td { border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        tr:hover { background: #e6f7ff; }
         
-        /* 💡 性能提示条 */
-        #error-banner { display: none; background: #fff2f0; color: #ff4d4f; padding: 10px; border: 1px solid #ffccc7; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 13px; }
+        #error-banner { display: none; background: #fff2f0; color: #ff4d4f; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 13px; border: 1px solid #ffccc7;}
 
-        /* 操作按钮样式 */
-        .action-btns { display: flex; gap: 6px; justify-content: flex-start; }
-        .view-btn { background: #e6f7ff; color: var(--primary); border: 1px solid rgba(24,144,255,0.3); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; }
-        .view-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
-        .download-btn { background: #f6ffed; color: var(--success); border: 1px solid rgba(82,196,26,0.3); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .download-btn:hover { background: var(--success); color: white; border-color: var(--success); }
+        .action-btns { display: flex; gap: 6px; }
+        .view-btn, .download-btn { padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; border: 1px solid transparent; }
+        .view-btn { background: #e6f7ff; color: var(--primary); border-color: rgba(24,144,255,0.3); }
+        .download-btn { background: #f6ffed; color: var(--success); border-color: rgba(82,196,26,0.3); }
 
-        /* ==============================
-           📄 分页组件样式
-           ============================== */
-        .pagination-bar { background: #fafafa; border-top: 1px solid #f0f0f0; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-        .page-info { font-size: 13px; color: #8c8c8c; }
+        /* === 3D 预览弹窗 === */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; width: 90%; max-width: 800px; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { margin: 0; font-size: 16px; }
+        .close-btn { font-size: 24px; cursor: pointer; color: #999; line-height: 1; }
+        .viewer-container { width: 100%; height: 500px; background: white; position: relative; }
+        .modal-footer { padding: 12px 20px; background: #fafafa; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #8c8c8c;}
+        
+        /* 分页 */
+        .pagination-bar { background: #fafafa; padding: 10px 20px; display: flex; justify-content: space-between; border-top: 1px solid #eee; }
         .page-btns { display: flex; gap: 5px; }
-        .page-link { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; color: var(--text); text-decoration: none; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .page-link:hover { border-color: var(--primary); color: var(--primary); }
-        .page-link.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
-        .page-link.disabled { color: #bfbfbf; border-color: #d9d9d9; background: #f5f5f5; cursor: not-allowed; }
-
-        /* ==============================
-           💡 升级：3D 预览弹窗样式
-           ============================== */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
-        .modal-content { background: white; width: 90%; max-width: 800px; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.2); display: flex; flex-direction: column; animation: modalIn 0.3s ease-out; }
-        @keyframes modalIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .modal-header { padding: 15px 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
-        .modal-header h2 { margin: 0; font-size: 18px; color: var(--text); }
-        .close-btn { font-size: 24px; cursor: pointer; color: #bfbfbf; transition: 0.2s; line-height: 1; }
-        .close-btn:hover { color: #f5222d; }
-        
-        /* 🚨 修复：白色背景画布，增加科研现代感 */
-        .viewer-container { width: 100%; height: 500px; background: white; position: relative; border-bottom: 1px solid #f0f0f0; }
-        
-        .modal-footer { padding: 12px 20px; text-align: right; background: white; display: flex; justify-content: space-between; align-items: center; }
-        .viewer-help { font-size: 12px; color: #8c8c8c; }
+        .page-link { padding: 4px 10px; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 12px; background: white; }
+        .page-link.active { background: var(--primary); color: white; border-color: var(--primary); }
     </style>
 </head>
 <body>
 
 <div class="main-card">
-    <h1>🔬 材料属性全量检索平台 (V4.0)</h1>
+    <h1>🔬 材料属性全量检索平台 (V4.1)</h1>
     
     <div class="ptable-container">
-        <div class="ptable-title">点击元素快速填入化学式 (H, C, N, Mo...)</div>
-        <div class="ptable-grid" id="periodic-table-grid">
-            </div>
+        <div class="ptable-title">
+            点击元素组成化学式 <button class="clear-btn" onclick="clearInput()">清空输入</button>
+        </div>
+        <div class="ptable-grid" id="periodic-table-grid"></div>
     </div>
 
-    <div id="error-banner">⚠️ 访问云端后端时出错。如果是第一次检索，服务器休眠唤醒可能需要 15-20 秒，请耐心等待或稍后重试。</div>
+    <div id="error-banner"></div>
 
     <div class="search-section">
         <div class="input-group">
-            <label>化学式 (输入单个或完整公式):</label>
-            <input type="text" id="formula-input" placeholder="例如: MoS2, Ca, Oxide...">
+            <label>化学式 (可连续点击上方元素):</label>
+            <input type="text" id="formula-input" placeholder="例如: MoS2">
         </div>
         <div class="input-group">
             <label>Stability (E_hull ≤ eV/atom):</label>
@@ -134,11 +107,9 @@
                 <tbody></tbody>
             </table>
         </div>
-        
         <div class="pagination-bar" id="pagination-bar">
-            <div class="page-info" id="page-info">第 0 页，共 0 页</div>
-            <div class="page-btns" id="page-btns-container">
-                </div>
+            <div id="page-info" style="font-size: 12px; color: #888;">等待检索...</div>
+            <div class="page-btns" id="page-btns-container"></div>
         </div>
     </div>
 </div>
@@ -151,62 +122,62 @@
         </div>
         <div id="gldiv" class="viewer-container"></div>
         <div class="modal-footer">
-            <div class="viewer-help">提示：鼠标悬停查看原子详情，滚轮缩放，左键旋转。</div>
-            <button class="download-btn" id="modal-download-btn">下载 CIF 文件</button>
+            <span>支持鼠标左键旋转，滚轮缩放，悬停查看原子坐标。</span>
+            <button class="download-btn" id="modal-download-btn">下载 CIF</button>
         </div>
     </div>
 </div>
 
 <script>
-    // 🚨 厂长注意：请务必确保这是你最新的 Railway 域名
     const API_URL = "https://web-production-61547.up.railway.app";
-    
-    // 全局状态管理
     let globalViewer; 
     let currentPage = 1;
-    let totalPages = 10; // ⚠️ 兼容旧后端，假设先有 10 页。最好后端返回总页数信息。
+    let totalPages = 10; 
     const defaultPageSize = 20;
 
-    // 初始化：页面加载完成执行
     window.onload = function() {
         initPeriodicTable();
     };
 
-    // ==============================
-    // 🎨 元素周期表逻辑
-    // ==============================
+    function clearInput() {
+        document.getElementById('formula-input').value = '';
+    }
+
+    // === 完整周期表生成 ===
     function initPeriodicTable() {
-        // 简化的科研常用周期表数据 (元素, Grid 列, Grid 行, 分类)
-        const commonElements = [
-            ["H", 1, 1, "nonmetal"], ["He", 18, 1, "nonmetal"],
-            ["Li", 1, 2, "metal"], ["Be", 2, 2, "metal"], ["B", 13, 2, "metalloid"], ["C", 14, 2, "nonmetal"], ["N", 15, 2, "nonmetal"], ["O", 16, 2, "nonmetal"], ["F", 17, 2, "nonmetal"], ["Ne", 18, 2, "nonmetal"],
-            ["Na", 1, 3, "metal"], ["Mg", 2, 3, "metal"], ["Al", 13, 3, "metal"], ["Si", 14, 3, "metalloid"], ["P", 15, 3, "nonmetal"], ["S", 16, 3, "nonmetal"], ["Cl", 17, 3, "nonmetal"], ["Ar", 18, 3, "nonmetal"],
-            ["K", 1, 4, "metal"], ["Ca", 2, 4, "metal"], 
-            ["Ti", 4, 4, "tm"], ["Cr", 6, 4, "tm"], ["Fe", 8, 4, "tm"], ["Ni", 10, 4, "tm"], ["Cu", 11, 4, "tm"], ["Zn", 12, 4, "metal"], ["As", 15, 4, "metalloid"], ["Se", 16, 4, "nonmetal"], 
-            ["Y", 3, 5, "tm"], ["Zr", 4, 5, "tm"], ["Mo", 6, 5, "tm"], ["Pd", 10, 5, "tm"], ["Ag", 11, 5, "tm"], ["Sn", 14, 5, "metal"], ["Sb", 15, 5, "metalloid"], ["Te", 16, 5, "metalloid"], ["I", 17, 5, "nonmetal"],
-            ["Ba", 2, 6, "metal"], ["W", 6, 6, "tm"], ["Pt", 10, 6, "tm"], ["Au", 11, 6, "tm"], ["Hg", 12, 6, "metal"], ["Pb", 14, 6, "metal"], ["Bi", 15, 6, "metal"],
-            ["Ce", 5, 8, "lan"], ["Nd", 7, 8, "lan"], ["Sm", 8, 8, "lan"], ["Eu", 9, 8, "lan"], ["Gd", 10, 8, "lan"], ["Er", 14, 8, "lan"],
+        const grid = document.getElementById('periodic-table-grid');
+        // [元素名, 列, 行, 分区(影响颜色)]
+        const elements = [
+            // Row 1
+            ["H",1,1,"s"], ["He",18,1,"p"],
+            // Row 2
+            ["Li",1,2,"s"], ["Be",2,2,"s"], ["B",13,2,"p"], ["C",14,2,"p"], ["N",15,2,"p"], ["O",16,2,"p"], ["F",17,2,"p"], ["Ne",18,2,"p"],
+            // Row 3
+            ["Na",1,3,"s"], ["Mg",2,3,"s"], ["Al",13,3,"p"], ["Si",14,3,"p"], ["P",15,3,"p"], ["S",16,3,"p"], ["Cl",17,3,"p"], ["Ar",18,3,"p"],
+            // Row 4
+            ["K",1,4,"s"], ["Ca",2,4,"s"], ["Sc",3,4,"d"], ["Ti",4,4,"d"], ["V",5,4,"d"], ["Cr",6,4,"d"], ["Mn",7,4,"d"], ["Fe",8,4,"d"], ["Co",9,4,"d"], ["Ni",10,4,"d"], ["Cu",11,4,"d"], ["Zn",12,4,"d"], ["Ga",13,4,"p"], ["Ge",14,4,"p"], ["As",15,4,"p"], ["Se",16,4,"p"], ["Br",17,4,"p"], ["Kr",18,4,"p"],
+            // Row 5
+            ["Rb",1,5,"s"], ["Sr",2,5,"s"], ["Y",3,5,"d"], ["Zr",4,5,"d"], ["Nb",5,5,"d"], ["Mo",6,5,"d"], ["Tc",7,5,"d"], ["Ru",8,5,"d"], ["Rh",9,5,"d"], ["Pd",10,5,"d"], ["Ag",11,5,"d"], ["Cd",12,5,"d"], ["In",13,5,"p"], ["Sn",14,5,"p"], ["Sb",15,5,"p"], ["Te",16,5,"p"], ["I",17,5,"p"], ["Xe",18,5,"p"],
+            // Row 6
+            ["Cs",1,6,"s"], ["Ba",2,6,"s"], ["Lu",3,6,"d"], ["Hf",4,6,"d"], ["Ta",5,6,"d"], ["W",6,6,"d"], ["Re",7,6,"d"], ["Os",8,6,"d"], ["Ir",9,6,"d"], ["Pt",10,6,"d"], ["Au",11,6,"d"], ["Hg",12,6,"d"], ["Tl",13,6,"p"], ["Pb",14,6,"p"], ["Bi",15,6,"p"], ["Po",16,6,"p"], ["At",17,6,"p"], ["Rn",18,6,"p"],
+            // Lanthanides (放在第8行)
+            ["La",4,8,"f"], ["Ce",5,8,"f"], ["Pr",6,8,"f"], ["Nd",7,8,"f"], ["Pm",8,8,"f"], ["Sm",9,8,"f"], ["Eu",10,8,"f"], ["Gd",11,8,"f"], ["Tb",12,8,"f"], ["Dy",13,8,"f"], ["Ho",14,8,"f"], ["Er",15,8,"f"], ["Tm",16,8,"f"], ["Yb",17,8,"f"]
         ];
 
-        const grid = document.getElementById('periodic-table-grid');
-        
-        commonElements.forEach(el => {
+        elements.forEach(el => {
             const div = document.createElement('div');
             div.className = `element el-${el[3]}`;
             div.style.gridColumn = el[1];
             div.style.gridRow = el[2];
             div.innerText = el[0];
-            // 点击将元素填入输入框
             div.onclick = () => {
-                document.getElementById('formula-input').value = el[0];
+                // 💡 修复：变成了追加 (+=)，而不是覆盖 (=)
+                document.getElementById('formula-input').value += el[0];
             };
             grid.appendChild(div);
         });
     }
 
-    // ==============================
-    // 📊 分页与检索逻辑
-    // ==============================
     async function runSearch(page = 1) {
         const formula = document.getElementById('formula-input').value.trim();
         const energy = document.getElementById('energy-input').value;
@@ -214,23 +185,19 @@
         const btn = document.getElementById('search-btn');
 
         banner.style.display = 'none';
-        btn.innerText = "🔍 检索中...";
+        btn.innerText = "检索中...";
         btn.disabled = true;
 
         try {
-            // 🚨 厂长注意：API 需要支持并读取页码 page=${page}。默认一页返回 defaultPageSize 个数据。
             const res = await fetch(`${API_URL}/search?formula=${formula}&energy=${energy}&page=${page}&limit=${defaultPageSize}`);
             if (!res.ok) throw new Error("Backend Error");
             const result = await res.json();
             
-            // 💡 适配：如果后端返回的是纯数组，则假设页数为常数
             let tableData, totalPagesInfo;
             if (Array.isArray(result)) {
                 tableData = result;
-                // 如果没有返回总页数信息，前端暂时“硬编码”假设有 10 页供分页显示
                 totalPagesInfo = 10; 
             } else if (result.data && Array.isArray(result.data)) {
-                // 标准的 pagination 后端返回格式
                 tableData = result.data;
                 totalPagesInfo = result.total_pages || 10;
                 page = result.current_page || page;
@@ -240,16 +207,13 @@
 
             currentPage = page;
             totalPages = totalPagesInfo;
-            
-            // 渲染表格
             renderUI(tableData);
-            // 💡 渲染分页条
             renderPagination();
             
         } catch (e) {
-            console.error(e);
+            banner.innerText = "⚠️ 无法连接后端。若是首次点击，云端正在开机，请等待约15秒。";
             banner.style.display = 'block';
-            resetTableAndPagination();
+            document.querySelector('#main-table tbody').innerHTML = '';
         } finally {
             btn.innerText = "立即检索";
             btn.disabled = false;
@@ -259,43 +223,27 @@
     function renderUI(data) {
         const thead = document.querySelector('#main-table thead');
         const tbody = document.querySelector('#main-table tbody');
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
+        thead.innerHTML = ''; tbody.innerHTML = '';
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:50px;color:#bfbfbf;">未找到匹配的稳定材料</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">未查到数据</td></tr>';
             return;
         }
 
-        // 定义科研规范的列顺序和显示名称
-        const colDefinitions = {
-            'Material ID': 'ID',
-            'Formula': '化学式',
-            'Predicted Formation Energy (eV/atom)': '生成能',
-            'Band Gap (eV)': '能隙',
-            'Space Group': '空间群',
-            'Energy Above Hull (eV/atom)': 'Eb'
-        };
+        const colDefs = { 'Material ID': 'ID', 'Formula': '化学式', 'Predicted Formation Energy (eV/atom)': '生成能', 'Band Gap (eV)': '能隙', 'Space Group': '空间群', 'Energy Above Hull (eV/atom)': 'Eb' };
+        const keys = Object.keys(data[0]).filter(k => colDefs[k]);
 
-        const availableCols = Object.keys(data[0]);
-        const keysToDisplay = availableCols.filter(key => colDefinitions[key]);
-
-        // 生成 th
         let headRow = '<tr>';
-        keysToDisplay.forEach(key => headRow += `<th>${colDefinitions[key]}</th>`);
+        keys.forEach(k => headRow += `<th>${colDefs[k]}</th>`);
         headRow += '<th>操作</th></tr>';
         thead.innerHTML = headRow;
 
-        // 生成 td
         data.forEach(item => {
             let row = '<tr>';
-            keysToDisplay.forEach(key => {
-                let val = item[key];
-                // 优化数字显示
-                if (typeof val === 'number' && key.includes('eV')) {
-                    val = val.toFixed(3);
-                }
-                row += `<td title="${val}">${val !== null ? val : '-'}</td>`;
+            keys.forEach(k => {
+                let val = item[k];
+                if (typeof val === 'number' && k.includes('eV')) val = val.toFixed(3);
+                row += `<td>${val !== null ? val : '-'}</td>`;
             });
             
             const mpid = item['Material ID'];
@@ -306,182 +254,94 @@
                     <button class="view-btn" onclick="previewStructure('${mpid}', '${formula}')">3D 预览</button>
                     <button class="download-btn" onclick="getStructure('${mpid}')">CIF</button>
                 </div>
-            </td>`;
-            row += '</tr>';
+            </td></tr>`;
             tbody.innerHTML += row;
         });
     }
 
-    function resetTableAndPagination() {
-        document.querySelector('#main-table thead').innerHTML = '';
-        document.querySelector('#main-table tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:50px;color:#ff4d4f;">数据加载失败，请重试</td></tr>';
-        currentPage = 1;
-        totalPages = 0;
-        renderPagination();
-    }
-
-    // ==============================
-    // 📄 分页渲染逻辑
-    // ==============================
     function renderPagination() {
-        const infoSpan = document.getElementById('page-info');
+        const info = document.getElementById('page-info');
         const container = document.getElementById('page-btns-container');
         container.innerHTML = '';
+        info.innerText = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
 
-        if (totalPages <= 0) {
-            infoSpan.innerText = '未查询到数据';
-            return;
+        let start = Math.max(1, currentPage - 2);
+        let end = Math.min(totalPages, start + 4);
+        
+        for (let i = start; i <= end; i++) {
+            const btn = document.createElement('a');
+            btn.className = `page-link ${currentPage === i ? 'active' : ''}`;
+            btn.innerText = i;
+            if (currentPage !== i) btn.onclick = () => runSearch(i);
+            container.appendChild(btn);
         }
-
-        infoSpan.innerText = `第 ${currentPage} 页，共 ${totalPages} 页`;
-
-        // 上一页按钮
-        const prev = document.createElement('a');
-        prev.className = `page-link ${currentPage === 1 ? 'disabled' : ''}`;
-        prev.innerText = '上一页';
-        if (currentPage !== 1) prev.onclick = () => runSearch(currentPage - 1);
-        container.appendChild(prev);
-
-        // 生成核心页码按钮 (限制最多显示 5 个页码)
-        let startPage = Math.max(1, currentPage - 2);
-        let endPage = Math.min(totalPages, startPage + 4);
-        if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
-
-        if (startPage > 1) {
-            const first = document.createElement('a');
-            first.className = 'page-link'; first.innerText = '1';
-            first.onclick = () => runSearch(1);
-            container.appendChild(first);
-            if (startPage > 2) container.appendChild(document.createTextNode('...'));
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            const pageLink = document.createElement('a');
-            pageLink.className = `page-link ${currentPage === i ? 'active' : ''}`;
-            pageLink.innerText = i;
-            if (currentPage !== i) pageLink.onclick = () => runSearch(i);
-            container.appendChild(pageLink);
-        }
-
-        if (endPage < totalPages) {
-            if (endPage < totalPages - 1) container.appendChild(document.createTextNode('...'));
-            const last = document.createElement('a');
-            last.className = 'page-link'; last.innerText = totalPages;
-            last.onclick = () => runSearch(totalPages);
-            container.appendChild(last);
-        }
-
-        // 下一页按钮
-        const next = document.createElement('a');
-        next.className = `page-link ${currentPage === totalPages ? 'disabled' : ''}`;
-        next.innerText = '下一页';
-        if (currentPage !== totalPages) next.onclick = () => runSearch(currentPage + 1);
-        container.appendChild(next);
     }
 
-    // ==============================
-    // 💡 升级：3D 预览渲染与扩胞逻辑
-    // ==============================
+    // === 彻底修复的 3D 渲染逻辑 ===
     async function previewStructure(mpid, formula) {
         if(!mpid) return;
         const modal = document.getElementById('viewer-modal');
-        const title = document.getElementById('modal-title');
-        const viewerDiv = document.getElementById('gldiv');
-        const downloadBtn = document.getElementById('modal-download-btn');
+        document.getElementById('modal-title').innerText = `${formula} (2x2x2 超胞视图)`;
+        
+        // 🚨 第一步：必须先让弹窗实体化，占据浏览器空间
+        modal.style.display = 'flex'; 
 
-        title.innerText = `${formula} 晶体结构 2x2x2 超胞视图`;
-        modal.style.display = 'flex'; // 显示弹窗
-
-        // 初始化或清理旧的渲染器
-        if (globalViewer) {
-            globalViewer.clear();
-        } else {
-            // 🚨 厂长注意：白色背景需要在这里显式声明 backgroundColor: 'white'
-            globalViewer = $3Dmol.createViewer(viewerDiv, {
-                backgroundColor: 'white' // NEW: 白色背景
-            });
-        }
-
-        try {
-            // 调用后端接口获取 CIF 文本
-            const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
-            const data = await res.json();
-            
-            if (!data.cif) {
-                alert("该材料无结构文件，无法预览。");
-                closeViewer();
-                return;
+        // 🚨 第二步：延迟 50 毫秒，等浏览器把画布大小算清楚，杜绝 WebGL 0x0 报错
+        setTimeout(async () => {
+            const viewerDiv = document.getElementById('gldiv');
+            if (globalViewer) {
+                globalViewer.clear();
+            } else {
+                globalViewer = $3Dmol.createViewer(viewerDiv, { backgroundColor: 'white' });
             }
 
-            // 💡 解析 CIF 数据
-            let m = globalViewer.addModel(data.cif, "cif");
-            
-            // 科研感 Jmol 球棍配色
-            globalViewer.setStyle({}, { 
-                sphere: { radius: 0.5, colorscheme: 'Jmol' }, 
-                stick: { radius: 0.15 } 
-            });
-            
-            // 💡 核心升级：扩胞逻辑，生成 2x2x2 的超胞，使成键和配位真正可见
-            m.replicate({a: 2, b: 2, c: 2}, true); 
-            
-            // 💡 核心升级：增加原子悬浮提示
-            globalViewer.setHoverable({}, true, function(atom, viewer) {
-                // 如果没有标签，创建一个
-                if (!atom.label) {
-                    atom.label = viewer.addLabel(`${atom.elem} | (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)})`, {
-                        position: atom,
-                        backgroundColor: 'rgba(255,255,255,0.8)', // 弹窗背景半透明白色
-                        fontColor: 'black', // 黑字
-                        fontSize: 12,
-                        borderColor: '#ccc',
-                        borderWidth: 1
-                    });
-                }
-            }, function(atom, viewer) {
-                // 鼠标移开时移除标签
-                if (atom.label) {
-                    viewer.removeLabel(atom.label);
-                    delete atom.label;
-                }
-            });
+            try {
+                const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
+                const data = await res.json();
+                if (!data.cif) { alert("无结构数据"); closeViewer(); return; }
 
-            // 添加晶胞边界边框
-            globalViewer.addUnitCell();
-            
-            globalViewer.zoomTo(); // 自动对焦适配
-            globalViewer.render(); // 执行渲染
+                // 🚨 第三步核心修复：废弃易报错的 replicate()，改用原生的 {supercell: [2,2,2]} 读取配置
+                globalViewer.addModel(data.cif, "cif", { supercell: [2, 2, 2] });
+                
+                globalViewer.setStyle({}, { sphere: { radius: 0.5 }, stick: { radius: 0.15 } });
+                globalViewer.addUnitCell();
+                
+                // 增加坐标提示
+                globalViewer.setHoverable({}, true, function(atom, viewer) {
+                    if (!atom.label) {
+                        atom.label = viewer.addLabel(`${atom.elem} (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)})`, {
+                            position: atom, backgroundColor: 'white', fontColor: 'black', fontSize: 12, borderColor: '#999', borderWidth: 1
+                        });
+                    }
+                }, function(atom, viewer) {
+                    if (atom.label) { viewer.removeLabel(atom.label); delete atom.label; }
+                });
 
-            downloadBtn.onclick = () => getStructure(mpid);
+                globalViewer.zoomTo(); 
+                globalViewer.render(); 
+                document.getElementById('modal-download-btn').onclick = () => getStructure(mpid);
 
-        } catch (e) {
-            console.error(e);
-            alert("由于 WebGL 或 CIF 数据问题，3D 预览渲染失败。数据已被捕获在 Console 中。");
-            closeViewer();
-        }
+            } catch (e) {
+                console.error(e);
+                alert("渲染结构时出错，请重试。");
+                closeViewer();
+            }
+        }, 50); 
     }
 
     function closeViewer() {
         document.getElementById('viewer-modal').style.display = 'none';
-        // 🚨 修复：关闭弹窗时移除 Hover 的 Label，防止再次打开残留
-        if(globalViewer) {
-            globalViewer.removeAllLabels();
-        }
+        if(globalViewer) globalViewer.removeAllLabels();
     }
 
     async function getStructure(mpid) {
-        if(!mpid) return;
         try {
             const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
             const data = await res.json();
-            if (!data.cif) return alert("该材料目前无结构文本数据供下载。");
             const blob = new Blob([data.cif], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${mpid}.cif`;
-            a.click();
-        } catch (e) { alert("下载 CIF 文件出错，请检查网络或后端状态。"); }
+            const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob);
+            a.download = `${mpid}.cif`; a.click();
+        } catch (e) { alert("下载失败"); }
     }
 </script>
 
