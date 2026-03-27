@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>材料数据库 V3.1 - 3D可视化版</title>
-    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js" defer></script>
     <style>
-        /* --- 旗舰级：全屏居中布局 --- */
+        /* --- 全局样式 --- */
         :root { --primary: #0056b3; --secondary: #1890ff; --bg: #f0f2f5; --success: #28a745; }
         
         * { box-sizing: border-box; }
@@ -39,16 +39,28 @@
         .download-btn:hover { background: #218838; }
         .view-btn:hover { background: #0076e4; }
 
-        /* 💡 增加：3D 预览弹窗 (Modal) 的样式 */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
-        .modal-content { background: white; width: 90%; max-width: 700px; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
-        .modal-header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fc; }
-        .modal-header h2 { margin: 0; font-size: 18px; color: #333; }
-        .close-btn { font-size: 24px; cursor: pointer; color: #aaa; transition: 0.2s; }
-        .close-btn:hover { color: #333; }
-        /* 这是 3D 渲染的画布区域 */
-        .viewer-container { width: 100%; height: 450px; background: #1a1a1a; position: relative; }
-        .modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; background: white; }
+        /* 💡 修复 UI：旗舰级 3D 预览弹窗样式，适配电脑版 */
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); 
+            display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; 
+        }
+        .modal-content { 
+            background: white; width: 800px; 
+            border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); 
+            display: flex; flex-direction: column; 
+            animation: modalFadeIn 0.3s ease-out; 
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-header { padding: 20px 25px; border-bottom: 1px solid #eaeaea; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .modal-header h2 { margin: 0; font-size: 20px; color: #111; font-weight: 600; }
+        .close-btn { font-size: 28px; line-height: 1; cursor: pointer; color: #999; transition: color 0.2s; }
+        .close-btn:hover { color: #ff4d4f; }
+        .viewer-container { width: 100%; height: 500px; background: #1a1a1a; position: relative; }
+        .modal-footer { padding: 15px 25px; border-top: 1px solid #eaeaea; text-align: right; background: #f8f9fc; }
     </style>
 </head>
 <body>
@@ -92,7 +104,6 @@
 </div>
 
 <script>
-    // 🚨 厂长注意：请务必确保这是你最新的 Railway 域名
     const API_URL = "https://web-production-61547.up.railway.app";
     let globalViewer; // 全局 3D 渲染器对象
 
@@ -112,7 +123,8 @@
             const result = await res.json();
             renderUI(result.data);
         } catch (e) {
-            banner.innerText = `⚠️ 访问后端出错，云端可能正在重启中。`;
+            // 优化了报错提示，说明可能存在的服务器冷启动延迟
+            banner.innerText = `⚠️ 访问后端出错。如果是刚打开网页，云端服务器可能正在唤醒中，请等待约 15-20 秒后重试。`;
             banner.style.display = 'block';
         } finally {
             btn.innerText = "立即检索";
@@ -131,7 +143,6 @@
             return;
         }
 
-        // 💡 扫描仪逻辑
         const cols = Object.keys(data[0]);
         let headRow = '<tr>';
         cols.forEach(c => headRow += `<th>${c}</th>`);
@@ -145,7 +156,6 @@
             const mpid = item['Material ID'];
             const formula = item['Formula'];
             
-            // 💡 修正：增加“3D 预览”按钮，调用新的预览函数
             row += `<td>
                 <div class="action-btns">
                     <button class="view-btn" onclick="previewStructure('${mpid}', '${formula}')">3D 预览</button>
@@ -157,7 +167,7 @@
         });
     }
 
-    // 💡 核心增加：3D 预览渲染逻辑
+    // 💡 修复 Bug：解决黑屏和扩胞 (replicate) 报错问题
     async function previewStructure(mpid, formula) {
         if(!mpid) return;
         const modal = document.getElementById('viewer-modal');
@@ -166,20 +176,19 @@
         const downloadBtn = document.getElementById('modal-download-btn');
 
         title.innerText = `${formula} 晶体结构 3D 交互视图`;
-        modal.style.display = 'flex'; // 显示弹窗
+        
+        // 🚨 必须先显示弹窗，让 3D 渲染器有实际的物理长宽尺寸
+        modal.style.display = 'flex'; 
 
-        // 初始化或清理旧的渲染器
         if (globalViewer) {
             globalViewer.clear();
         } else {
-            // 在画布容器里创建渲染器
             globalViewer = $3Dmol.createViewer(viewerDiv, {
-                backgroundColor: '#1a1a1a' // 科研感的深色背景
+                backgroundColor: '#1a1a1a' 
             });
         }
 
         try {
-            // 1. 调用现有的后端接口获取本材料的 CIF 文本
             const res = await fetch(`${API_URL}/get_cif?mpid=${mpid}`);
             const data = await res.json();
             
@@ -189,25 +198,22 @@
                 return;
             }
 
-            // 2. 核心 3Dmol.js 魔法：解析并渲染
-            globalViewer.addModel(data.cif, "cif"); // 添加 CIF 数据
+            // 🚨 将添加的模型赋值给一个变量，扩胞操作需要针对模型本身
+            let model = globalViewer.addModel(data.cif, "cif"); 
             
-            // 设置球棍模型样式 (sphere + stick)
             globalViewer.setStyle({}, { 
-                sphere: { radius: 0.5, colorscheme: 'Jmol' }, // 原子球，使用标准 Jmol 配色
-                stick: { radius: 0.15 } // 键
+                sphere: { radius: 0.5, colorscheme: 'Jmol' }, 
+                stick: { radius: 0.15 } 
             });
             
-            // 添加晶胞边框
             globalViewer.addUnitCell();
             
-            // 平移复制晶胞（显示复数的原胞，更美观）
-            globalViewer.replicate({a: 1, b: 1, c: 1}, true); 
+            // 🚨 正确调用 replicate 方法
+            model.replicate(1, 1, 1); 
             
-            globalViewer.zoomTo(); // 自动调整焦距适配窗口
-            globalViewer.render(); // 执行渲染画面
+            globalViewer.zoomTo(); 
+            globalViewer.render(); 
 
-            // 更新弹窗底部下载按钮的逻辑，防止重复调用
             downloadBtn.onclick = () => getStructure(mpid);
 
         } catch (e) {
@@ -217,12 +223,10 @@
         }
     }
 
-    // 关闭弹窗
     function closeViewer() {
         document.getElementById('viewer-modal').style.display = 'none';
     }
 
-    // 原始下载函数保持不变
     async function getStructure(mpid) {
         if(!mpid) return;
         try {
